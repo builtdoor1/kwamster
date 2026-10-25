@@ -19,20 +19,25 @@ import kwamster.core.model.PlayerRef;
 import kwamster.core.model.ShareLink;
 import kwamster.core.model.StoplightReading;
 import kwamster.core.model.StoplightState;
+import kwamster.configui.ConfigScreenBuilder;
 import kwamster.direction.HeadBarMotion;
 import kwamster.direction.HeadBarTracker;
 import kwamster.hud.HudLayoutMath;
 import kwamster.hud.HudManager;
+import kwamster.record.screen.FightList;
+import kwamster.record.screen.SavedFightsScreen;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -89,6 +94,7 @@ public final class KwamsterClientGameTest implements FabricClientGameTest {
 			hideChecks(ctx);
 			masterSwitch(ctx);
 			guiScaleFour(ctx);
+			docsScreenshots(ctx);
 		}
 	}
 
@@ -463,6 +469,260 @@ public final class KwamsterClientGameTest implements FabricClientGameTest {
 
 		ctx.runOnClient(mc -> mc.options.guiScale().set(2));
 		ctx.getInput().resizeWindow(854, 480);
+		ctx.waitTicks(2);
+	}
+
+	// ---- 12. README screenshots --------------------------------------------------------------------------
+
+	/**
+	 * Large, crisp shots of every feature for the README (files named {@code docs_*}), at 1920x1080. HUD
+	 * elements are shot at GUI scale 4 so their crops stay pixel-sharp; screens at GUI scale 3 so more of
+	 * them fits. Light checks only: the regular steps above own the assertions.
+	 */
+	private void docsScreenshots(ClientGameTestContext ctx) {
+		ctx.getInput().resizeWindow(1920, 1080);
+		ctx.runOnClient(mc -> {
+			mc.options.guiScale().set(4);
+			mc.gui.getChat().clearMessages(false);
+			KwamsterConfig c = Kwamster.config();
+			KwamsterConfig.PanelRows rows = c.hud.rows;
+			rows.streak = true;
+			rows.interval = true;
+			rows.taken = true;
+			rows.aim = true;
+			rows.trades = true;
+		});
+		ctx.waitTicks(3);
+		ctx.runOnClient(mc -> Kwamster.testHooks().beginSyntheticFight("Kwamix"));
+		ctx.waitTicks(2);
+
+		// One shot per indicator state, with per-hit chat off: KWAMSTER draws under chat, so a tall chat
+		// box would dim the pill. The last landed tier is the 3-block crit.
+		docsSwing(ctx, "docs_pill_miss_over", h -> h.swing(false, 3.40, true, false, false, 1.4, 0.3));
+		docsSwing(ctx, "docs_pill_miss", h -> h.swing(false, 2.70, true, false, false, 1.2, -0.2));
+		docsSwing(ctx, "docs_pill_noreg", h -> h.swing(true, 2.60, true, false, false, 0.0, 0.1, true));
+		docsSwing(ctx, "docs_pill_weak", h -> h.swing(true, 2.10, false, false, false, -0.3, 0.2));
+		docsSwing(ctx, "docs_pill_hit", h -> h.swing(true, 2.50, true, false, false, 0.0, 0.0));
+		docsSwing(ctx, "docs_pill_sprint", h -> h.swing(true, 2.80, true, false, true, 0.1, -0.5));
+		docsSwing(ctx, "docs_pill_crit", h -> h.swing(true, 2.40, true, true, false, 0.6, 0.0));
+		docsSwing(ctx, "docs_pill_3b", h -> h.swing(true, 2.98, true, false, false, 0.0, 0.3));
+		docsSwing(ctx, "docs_pill_3b_sprint", h -> h.swing(true, 2.96, true, false, true, -0.2, 0.1));
+		docsSwing(ctx, "docs_pill_3b_crit", h -> h.swing(true, 2.97, true, true, false, 0.05, 0.45));
+
+		// The same swings again with per-hit chat on, to fill chat for the chat shots.
+		ctx.runOnClient(mc -> {
+			Kwamster.config().display.chatMode = KwamsterConfig.ChatMode.BOTH;
+			mc.gui.getChat().clearMessages(false);
+		});
+		hook(ctx, h -> h.swing(false, 3.40, true, false, false, 1.4, 0.3));
+		hook(ctx, h -> h.swing(false, 2.70, true, false, false, 1.2, -0.2));
+		hook(ctx, h -> h.swing(true, 2.60, true, false, false, 0.0, 0.1, true));
+		hook(ctx, h -> h.swing(true, 2.10, false, false, false, -0.3, 0.2));
+		hook(ctx, h -> h.swing(true, 2.50, true, false, false, 0.0, 0.0));
+		hook(ctx, h -> h.swing(true, 2.80, true, false, true, 0.1, -0.5));
+		hook(ctx, h -> h.swing(true, 2.40, true, true, false, 0.6, 0.0));
+		hook(ctx, h -> h.swing(true, 2.98, true, false, false, 0.0, 0.3));
+		hook(ctx, h -> h.swing(true, 2.96, true, false, true, -0.2, 0.1));
+		hook(ctx, h -> h.swing(true, 2.97, true, true, false, 0.05, 0.45));
+
+		// The per-hit chat line's hover (newest line, index 0).
+		hoverChatLine(ctx, 0, "docs_chat_hit_hover");
+
+		ctx.runOnClient(mc -> Kwamster.testHooks().hitTaken(2.9, true));
+		ctx.waitTicks(2);
+		ctx.runOnClient(mc -> Kwamster.testHooks().jumpReset(1));
+		ctx.waitTicks(4);
+		ctx.takeScreenshot("docs_chat_perhit");
+
+		// The full 14-row panel, with chat cleared so it does not cover the bottom rows.
+		ctx.runOnClient(mc -> mc.gui.getChat().clearMessages(false));
+		ctx.waitTicks(2);
+		ctx.takeScreenshot("docs_panel_full");
+
+		ctx.runOnClient(mc -> Kwamster.config().hud.panelCompact = true);
+		ctx.waitTicks(2);
+		ctx.takeScreenshot("docs_panel_compact");
+		ctx.runOnClient(mc -> Kwamster.config().hud.panelCompact = false);
+
+		// The optional HUD stoplight.
+		ctx.runOnClient(mc -> Kwamster.config().direction.stoplightEnabled = true);
+		PlayerRef kwamix = ctx.computeOnClient(mc -> Kwamster.fights().currentOpponent());
+		StoplightState[] states = {StoplightState.GREEN, StoplightState.YELLOW, StoplightState.RED};
+		double[] speeds = {3.1, 0.2, -2.4};
+		for (int i = 0; i < states.length; i++) {
+			StoplightState state = states[i];
+			double speed = speeds[i];
+			ctx.runOnClient(mc -> Kwamster.testHooks().setStoplightOverride(
+					new StoplightReading(state, speed, false, kwamix, Clock.nanos())));
+			ctx.waitTicks(3);
+			ctx.takeScreenshot("docs_stoplight_" + state.name().toLowerCase(Locale.ROOT));
+		}
+		ctx.runOnClient(mc -> {
+			Kwamster.testHooks().setStoplightOverride(null);
+			Kwamster.config().direction.stoplightEnabled = false;
+		});
+
+		// Crosshair shapes (default state) and the four state colours.
+		for (KwamsterConfig.CrosshairShape shape : KwamsterConfig.CrosshairShape.values()) {
+			ctx.runOnClient(mc -> Kwamster.config().crosshair.shape = shape);
+			ctx.waitTicks(2);
+			ctx.takeScreenshot("docs_shape_" + shape.name().toLowerCase(Locale.ROOT));
+		}
+		ctx.runOnClient(mc -> Kwamster.config().crosshair.shape = KwamsterConfig.CrosshairShape.CROSS);
+		for (CrosshairMode mode : CrosshairMode.values()) {
+			ctx.runOnClient(mc -> Kwamster.testHooks().setCrosshairOverride(mode));
+			ctx.waitTicks(2);
+			ctx.takeScreenshot("docs_crosshair_" + mode.name().toLowerCase(Locale.ROOT));
+		}
+		ctx.runOnClient(mc -> Kwamster.testHooks().setCrosshairOverride(null));
+
+		// Fight end: card + chat summary, the summary's hover, then the panel between fights.
+		ctx.runOnClient(mc -> {
+			Kwamster.config().alert.cardDurationMs = 2500;
+			mc.gui.getChat().clearMessages(false);
+			Kwamster.testHooks().endSyntheticFight(FightResult.WIN);
+		});
+		ctx.waitTicks(5);
+		ctx.takeScreenshot("docs_card");
+		hoverChatLine(ctx, 1, "docs_chat_summary_hover");
+		ctx.waitTicks(60);
+		ctx.takeScreenshot("docs_panel_last");
+		ctx.runOnClient(mc -> Kwamster.config().hud.panelWhenIdle = KwamsterConfig.PanelIdle.SESSION);
+		ctx.waitTicks(2);
+		ctx.takeScreenshot("docs_panel_session");
+		ctx.runOnClient(mc -> {
+			KwamsterConfig c = Kwamster.config();
+			c.hud.panelWhenIdle = KwamsterConfig.PanelIdle.LAST_FIGHT;
+			c.alert.cardDurationMs = 7000;
+			c.hud.rows = new KwamsterConfig.PanelRows();
+			c.display.chatMode = KwamsterConfig.ChatMode.PER_FIGHT;
+		});
+
+		// Direction bars, crisp at GUI 4.
+		ctx.runOnClient(mc -> {
+			Kwamster.config().direction.headBarForSelf = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		});
+		ctx.waitTicks(5);
+		ctx.getInput().holdKey(options -> options.keyUp);
+		ctx.waitTicks(10);
+		ctx.takeScreenshot("docs_headbar_forward");
+		ctx.getInput().releaseKey(options -> options.keyUp);
+		ctx.getInput().holdKey(options -> options.keyDown);
+		ctx.waitTicks(12);
+		ctx.takeScreenshot("docs_headbar_backward");
+		ctx.getInput().releaseKey(options -> options.keyDown);
+		ctx.waitTicks(20);
+		ctx.takeScreenshot("docs_headbar_idle");
+		ctx.runOnClient(mc -> {
+			Kwamster.config().direction.headBarForSelf = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+
+		// Screens at GUI 3: every settings tab, the HUD editor and Saved fights with a row selected.
+		ctx.runOnClient(mc -> mc.options.guiScale().set(3));
+		ctx.waitTicks(3);
+		for (int i = 0; i < ConfigScreenBuilder.CATEGORIES.size(); i++) {
+			String title = ConfigScreenBuilder.CATEGORIES.get(i);
+			openScreen(ctx, ScreenId.SETTINGS, title);
+			parkCursor(ctx);
+			ctx.takeScreenshot(String.format(Locale.ROOT, "docs_settings_%d_%s", i,
+					title.toLowerCase(Locale.ROOT).replaceAll("[^a-z]+", "_")));
+		}
+		// Collapsed groups opened by clicking their header row (positions are fixed at 1920x1080, GUI 3).
+		expandSetting(ctx, ConfigScreenBuilder.HUD, 150, 495, 0, "docs_settings_hud_panel_rows");
+		expandSetting(ctx, ConfigScreenBuilder.DIRECTION, 150, 567, 0, "docs_settings_direction_bar_look");
+		expandSetting(ctx, ConfigScreenBuilder.DIRECTION, 150, 639, 0, "docs_settings_direction_jump_sound");
+		expandSetting(ctx, ConfigScreenBuilder.HIT_FEEDBACK, 150, 969, -6, "docs_settings_hit_tier");
+		openScreen(ctx, ScreenId.HUD_EDITOR, null);
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_hud_editor");
+		ctx.clickScreenButton("Cancel");
+		ctx.waitTicks(2);
+		openScreen(ctx, ScreenId.SAVED_FIGHTS, null);
+		ctx.runOnClient(mc -> {
+			if (mc.screen instanceof SavedFightsScreen screen) {
+				try {
+					Field list = SavedFightsScreen.class.getDeclaredField("list");
+					list.setAccessible(true);
+					FightList fights = (FightList) list.get(screen);
+					if (fights != null) {
+						fights.selectIndex(0);
+					}
+				} catch (ReflectiveOperationException e) {
+					throw new AssertionError("KWAMSTER gametest: cannot select a saved fight", e);
+				}
+			}
+		});
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_saved_fights");
+		ctx.setScreen(() -> null);
+		ctx.waitTicks(2);
+
+		ctx.runOnClient(mc -> mc.options.guiScale().set(2));
+		ctx.getInput().resizeWindow(854, 480);
+		ctx.waitTicks(2);
+	}
+
+	/** Runs one swing, waits for the indicator's pop-in to settle and takes {@code name}. */
+	private static void docsSwing(ClientGameTestContext ctx, String name, Consumer<TestHooks> swing) {
+		ctx.runOnClient(mc -> swing.accept(Kwamster.testHooks()));
+		ctx.waitTicks(3);
+		ctx.takeScreenshot(name);
+		ctx.waitTicks(4);
+	}
+
+	/**
+	 * Opens chat and hovers chat line {@code index} (0 = newest) a little right of the {@code [KW]}
+	 * prefix, which is where the summary and per-hit lines attach their hover text, then takes
+	 * {@code name}. Layout from ChatComponent.render at chat scale 1 and line spacing 0: line i spans
+	 * {@code m - 9(i+1) .. m - 9i} with {@code m = guiHeight - 40}, and text starts at x = 4.
+	 */
+	private static void hoverChatLine(ClientGameTestContext ctx, int index, String name) {
+		ctx.setScreen(() -> new ChatScreen("", false));
+		ctx.waitTicks(2);
+		double[] pos = ctx.computeOnClient(mc -> {
+			int gs = mc.getWindow().getGuiScale();
+			int m = mc.getWindow().getGuiScaledHeight() - 40;
+			double y = m - 9 * index - 4.5;
+			return new double[] {40.0 * gs, y * gs};
+		});
+		ctx.getInput().setCursorPos(pos[0], pos[1]);
+		ctx.waitTick();
+		ctx.getInput().setCursorPos(pos[0], pos[1]);
+		ctx.waitTicks(3);
+		ctx.takeScreenshot(name);
+		ctx.setScreen(() -> null);
+		ctx.waitTicks(2);
+	}
+
+	/**
+	 * Opens settings tab {@code tab}, clicks the collapsed group header at physical ({@code x}, {@code y}),
+	 * optionally scrolls the list by {@code scroll} notches (negative is down), and takes {@code name}.
+	 */
+	private static void expandSetting(ClientGameTestContext ctx, String tab, double x, double y, double scroll, String name) {
+		openScreen(ctx, ScreenId.SETTINGS, tab);
+		ctx.getInput().setCursorPos(x, y);
+		ctx.waitTick();
+		ctx.getInput().setCursorPos(x, y);
+		ctx.waitTick();
+		ctx.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		ctx.waitTicks(3);
+		if (scroll != 0) {
+			ctx.getInput().setCursorPos(960, 600);
+			ctx.waitTick();
+			ctx.getInput().scroll(scroll);
+			ctx.waitTicks(3);
+		}
+		parkCursor(ctx);
+		ctx.takeScreenshot(name);
+	}
+
+	/** Moves the cursor to the top-left corner so no tooltip covers a screen shot. */
+	private static void parkCursor(ClientGameTestContext ctx) {
+		ctx.getInput().setCursorPos(2, 2);
+		ctx.waitTick();
+		ctx.getInput().setCursorPos(2, 2);
 		ctx.waitTicks(2);
 	}
 
