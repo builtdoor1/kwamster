@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "kwamster_test",
+	"version": "1.0.0",
+	"name": "KWAMSTER Tests",
+	"description": "Client game tests for KWAMSTER. Development only, never shipped.",
+	"authors": [
+		"builtdoor"
+	],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"kwamster.test.KwamsterClientGameTest"
+		]
+	},
+	"depends": {
+		"kwamster": "*",
+		"fabric-client-gametest-api-v1": "*"
+	}
+}

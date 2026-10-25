@@ -1,0 +1,63 @@
+{
+	"schemaVersion": 1,
+	"id": "kwamster",
+	"version": "${version}",
+	"name": "KWAMSTER",
+	"description": "An all-in-one PvP stats client mod: live combat HUD, hit-quality sounds and colours, 3-block hit feedback, jump resets, reach, aim placement, a crit-aware crosshair, the opponent's direction stoplight, fight summaries and shareable fight links.",
+	"authors": [
+		"builtdoor"
+	],
+	"contact": {
+		"homepage": "https://github.com/builtdoor1/kwamster",
+		"sources": "https://github.com/builtdoor1/kwamster",
+		"issues": "https://github.com/builtdoor1/kwamster/issues"
+	},
+	"license": "MIT",
+	"icon": "assets/kwamster/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"kwamster.KwamsterClient"
+		],
+		"modmenu": [
+			"kwamster.config.ModMenuIntegration"
+		],
+		"kwamster": [
+			"kwamster.capture.CaptureModule",
+			"kwamster.record.RecordModule",
+			"kwamster.direction.DirectionModule",
+			"kwamster.feedback.FeedbackModule",
+			"kwamster.crosshair.CrosshairModule",
+			"kwamster.hud.HudModule",
+			"kwamster.configui.ConfigUiModule"
+		]
+	},
+	"mixins": [
+		{
+			"config": "kwamster.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "${minecraft_version}",
+		"java": ">=21",
+		"fabric-api": ">=0.141.4",
+		"cloth-config": ">=21.11.153"
+	},
+	"suggests": {
+		"modmenu": "*"
+	},
+	"conflicts": {
+		"combat_tracker": "*",
+		"combat_report": "*",
+		"directionindicator": "*"
+	},
+	"custom": {
+		"modmenu": {
+			"links": {
+				"modmenu.github_releases": "https://github.com/builtdoor1/kwamster/releases"
+			}
+		}
+	}
+}

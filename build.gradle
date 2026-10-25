@@ -1,0 +1,151 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = "${project.mod_version}+${project.minecraft_version}"
+group = project.maven_group
+
+base {
+	archivesName = 'kwamster'
+}
+
+// The jar carries both versions: kwamster-1.0.0+1.21.11.jar. The mod version says
+// what changed, the Minecraft version says whether the file will even load.
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"kwamster" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+
+	// ./gradlew runClient -PmixinDebug writes every patched class to run/.mixin.out.
+	if (project.hasProperty('mixinDebug')) {
+		runs.configureEach {
+			vmArg '-Dmixin.debug=true'
+			vmArg '-Dmixin.debug.verbose=true'
+		}
+	}
+}
+
+// ./gradlew runClientGameTest launches the client, creates a flat world and takes
+// screenshots of the HUD and settings into build/run/clientGameTest/screenshots.
+// The test mod lives in src/gametest and never ships in the jar.
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = 'kwamster_test'
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = true
+	}
+}
+
+sourceSets {
+	gametest {
+		compileClasspath += sourceSets.client.output
+		runtimeClasspath += sourceSets.client.output
+	}
+}
+
+repositories {
+	maven {
+		name = 'Terraformers'
+		url = 'https://maven.terraformersmc.com/releases/'
+	}
+	maven {
+		name = 'Shedaniel'
+		url = 'https://maven.shedaniel.me/'
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Mod Menu: the "Mods" screen and the config button entrypoint.
+	modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+	// Cloth Config: builds the settings screen. Exclude its bundled Fabric API so it
+	// does not clash with the version above.
+	modImplementation("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
+		exclude(group: "net.fabricmc.fabric-api")
+	}
+
+	testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_version}"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+// Unit tests cover the Minecraft-free maths (stats, grading, share payload).
+test {
+	useJUnitPlatform()
+}
+
+processResources {
+	inputs.property "version", project.version
+	inputs.property "minecraft_version", project.minecraft_version
+	inputs.property "loader_version", project.loader_version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version,
+				"minecraft_version": project.minecraft_version,
+				"loader_version": project.loader_version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+	// HUD, chat and screen text contains non-ASCII glyphs (· — ● ✔); never depend on the platform charset.
+	it.options.encoding = 'UTF-8'
+}
+
+java {
+	withSourcesJar()
+
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+jar {
+	from("LICENSE") {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			artifactId = project.base.archivesName.get()
+			from components.java
+		}
+	}
+
+	repositories {
+	}
+}
+
+// Writes the client compile classpath to build/client-classpath.txt so source files
+// can be checked with plain javac without starting Gradle.
+tasks.register('writeClientClasspath') {
+	dependsOn 'classes'
+	doLast {
+		def cp = (sourceSets.client.compileClasspath.files + sourceSets.main.output.files).join(File.pathSeparator)
+		file("${buildDir}/client-classpath.txt").text = cp
+	}
+}
+
+// Unit tests compile against the Minecraft-free client classes (DESIGN.md R6).
+sourceSets {
+	test {
+		compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+		runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
+	}
+}

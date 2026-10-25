@@ -1,0 +1,2513 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>KWAMSTER fight replay</title>
+<meta name="description" content="Fight stats, timeline and replay from the KWAMSTER Minecraft mod. The data lives in the link.">
+<meta property="og:title" content="KWAMSTER fight replay">
+<meta property="og:description" content="Fight stats, timeline and replay from the KWAMSTER Minecraft mod. The data lives in the link.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#8B5CF6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%238B5CF6'/%3E%3Cpath d='M10 7v18M10 16l10-9M13 13l8 12' stroke='white' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script>
+	/* Theme before first paint, so a light-theme visitor never sees a dark flash. Dark is the default (it matches the HUD). */
+	(function () {
+		try {
+			var t = localStorage.getItem('kwamster-theme');
+			if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+		} catch (e) { /* storage blocked: keep the default */ }
+	})();
+</script>
+<style>
+	/* ── Tokens ─────────────────────────────────────────────────────────────
+	   Dark is the designed default (DESIGN.md §9.7, matching the in-game HUD).
+	   Light is a selected theme with its own steps, not an automatic inversion. */
+	:root {
+		color-scheme: dark;
+		--bg: #0B0D12;
+		--panel: #12151C;
+		--panel-2: #0E1117;
+		--line: #232836;
+		--line-hi: #2E3445;
+		--text: #E8EAED;
+		--muted: #9AA4B2;
+		--dim: #7D8696;
+		--accent: #8B5CF6;
+		--accent-ink: #A98BFA;
+		--accent2: #22D3EE;
+		--win: #3DDC84;
+		--loss: #FF5A5F;
+		--draw: #FFC53D;
+		--win-ink: #3DDC84;
+		--loss-ink: #FF7A7E;
+		--draw-ink: #FFC53D;
+		--on-badge: #0B0D12;
+		--grid1: #1A1E28;
+		--grid5: #232836;
+		--stage: #0E1117;
+		--o0: #FF7A59; --o1: #FFB347; --o2: #4DD4AC; --o3: #7AA7FF;
+		--o0t: #FF7A59; --o1t: #FFB347; --o2t: #4DD4AC; --o3t: #7AA7FF;
+		--miss: #7D8696;
+		--miss-over: #E0777A;
+		--mark-edge: rgba(0, 0, 0, 0);
+		--chip: rgba(255, 255, 255, .035);
+		--wash: rgba(139, 92, 246, .07);
+		--shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 28px rgba(0, 0, 0, .22);
+		--r: 12px;
+		--gutter: 16px;
+		--font: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+		--mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+		--ease: cubic-bezier(.22, .61, .36, 1);
+	}
+	:root[data-theme="light"] {
+		color-scheme: light;
+		--bg: #F4F5F9;
+		--panel: #FFFFFF;
+		--panel-2: #F8F9FC;
+		--line: #E1E4EB;
+		--line-hi: #CBD0DA;
+		--text: #151821;
+		--muted: #4F5867;
+		--dim: #646D7C;
+		--accent: #7C3AED;
+		--accent-ink: #6D28D9;
+		--accent2: #0E9FB8;
+		--win: #1FB866;
+		--loss: #E5484D;
+		--draw: #E0A400;
+		--win-ink: #13804A;
+		--loss-ink: #C42F38;
+		--draw-ink: #8F6400;
+		--on-badge: #0B0D12;
+		--grid1: #ECEEF3;
+		--grid5: #D8DCE4;
+		--stage: #FBFBFD;
+		--o0t: #C9441F; --o1t: #A05F00; --o2t: #127F64; --o3t: #2C5ECB;
+		--miss: #8A93A2;
+		--miss-over: #D9535A;
+		--mark-edge: rgba(20, 23, 33, .45);
+		--chip: rgba(20, 23, 33, .04);
+		--wash: rgba(124, 58, 237, .05);
+		--shadow: 0 1px 2px rgba(20, 23, 33, .06), 0 8px 24px rgba(20, 23, 33, .06);
+	}
+
+	*, *::before, *::after { box-sizing: border-box; }
+	html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font: 15px/1.5 var(--font);
+		-webkit-font-smoothing: antialiased;
+		overflow-x: hidden;
+	}
+	.wrap {
+		max-width: 1100px;
+		margin: 0 auto;
+		padding: 0 var(--gutter) 32px;
+		padding-left: max(var(--gutter), env(safe-area-inset-left));
+		padding-right: max(var(--gutter), env(safe-area-inset-right));
+	}
+	@media (min-width: 720px) { :root { --gutter: 24px; } }
+	a { color: var(--accent-ink); text-decoration: none; }
+	a:hover { text-decoration: underline; text-underline-offset: 3px; }
+	:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+	button { font: inherit; color: inherit; }
+	code { font-family: var(--mono); font-size: .9em; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: .1em .4em; overflow-wrap: anywhere; }
+	.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+	/* ── Top bar ───────────────────────────────────────────────────────── */
+	.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 14px; }
+	.brand { font-weight: 800; letter-spacing: .16em; color: var(--accent-ink); font-size: 15px; }
+	.brand:hover { text-decoration: none; filter: brightness(1.15); }
+	.icon-btn {
+		display: inline-flex; align-items: center; justify-content: center;
+		width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line);
+		background: var(--panel); cursor: pointer; color: var(--muted);
+		transition: border-color .15s var(--ease), color .15s var(--ease);
+	}
+	.icon-btn:hover { border-color: var(--line-hi); color: var(--text); }
+	.icon-btn svg { width: 18px; height: 18px; }
+	.theme-sun { display: none; }
+	:root[data-theme="light"] .theme-sun { display: block; }
+	:root[data-theme="light"] .theme-moon { display: none; }
+
+	/* ── Shared surfaces ───────────────────────────────────────────────── */
+	.panel {
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: var(--r);
+		box-shadow: var(--shadow);
+		padding: 16px;
+		min-width: 0;
+	}
+	.sec { margin-top: 28px; min-width: 0; }
+	.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 10px; }
+	.sec-head h2 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+	.hint { margin: 0; color: var(--dim); font-size: 12.5px; }
+	.chip {
+		display: inline-flex; align-items: center; gap: 6px;
+		font-size: 12.5px; color: var(--muted); white-space: nowrap;
+		padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--chip);
+		font-variant-numeric: tabular-nums;
+	}
+	.chip b { color: var(--text); font-weight: 650; }
+	.note {
+		margin: 14px 0 0; padding: 10px 14px; font-size: 13px; color: var(--muted);
+		border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; background: var(--wash);
+	}
+	.note b { color: var(--text); }
+	.duo { display: grid; gap: 0 20px; grid-template-columns: minmax(0, 1fr); }
+	@media (min-width: 860px) {
+		.duo { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+		.duo.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+	}
+	.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+	.legend span { display: inline-flex; align-items: center; gap: 6px; }
+	.legend svg { width: 14px; height: 14px; overflow: visible; }
+	.empty-msg { color: var(--dim); font-size: 13px; padding: 18px 4px; text-align: center; }
+
+	/* ── Header card ───────────────────────────────────────────────────── */
+	.hero { display: flex; gap: 16px; align-items: center; padding: 18px; }
+	.avatar {
+		flex: none; width: 60px; height: 60px; border-radius: 50%;
+		display: grid; place-items: center; color: #fff; font-weight: 750; font-size: 21px; letter-spacing: .02em;
+		background: radial-gradient(circle at 30% 25%, #A78BFA, #7C3AED 55%, #4C1D95);
+		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+	}
+	.hero-main { min-width: 0; flex: 1; }
+	.title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+	.badge {
+		font-weight: 800; letter-spacing: .08em; font-size: 13px; padding: 4px 10px; border-radius: 8px;
+		color: var(--on-badge); background: var(--draw);
+	}
+	.badge.win { background: var(--win); }
+	.badge.loss { background: var(--loss); }
+	.matchup { margin: 0; font-size: clamp(19px, 2.6vw, 26px); font-weight: 700; letter-spacing: -.015em; line-height: 1.25; overflow-wrap: anywhere; }
+	.matchup .vs { color: var(--dim); font-weight: 500; font-size: .8em; margin: 0 .15em; }
+	.matchup .sep { color: var(--dim); font-weight: 500; }
+	.opp { display: inline-flex; align-items: center; gap: .3em; }
+	.opp i { width: .5em; height: .5em; border-radius: 50%; background: var(--c); display: inline-block; flex: none; }
+	.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+	@media (max-width: 520px) {
+		.hero { align-items: flex-start; padding: 14px; gap: 12px; }
+		.avatar { width: 46px; height: 46px; font-size: 17px; }
+	}
+
+	/* ── Stat cards ────────────────────────────────────────────────────── */
+	.cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); margin-top: 16px; }
+	@media (max-width: 420px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+	.stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; min-width: 0; box-shadow: var(--shadow); }
+	.stat .k { font-size: 12.5px; color: var(--muted); }
+	.stat .v { font-size: 23px; font-weight: 680; letter-spacing: -.02em; line-height: 1.2; margin-top: 2px; overflow-wrap: anywhere; }
+	.stat .v small { font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 2px; }
+	.stat .s { font-size: 12px; color: var(--dim); margin-top: 2px; overflow-wrap: anywhere; }
+	.stat .split { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 8px; gap: 2px; background: transparent; }
+	.stat .split i { display: block; height: 100%; border-radius: 2px; }
+
+	/* ── Timeline ──────────────────────────────────────────────────────── */
+	.tl-panel { position: relative; padding: 12px 12px 10px; }
+	.tl-host { position: relative; overflow-x: auto; overflow-y: hidden; touch-action: pan-y; cursor: grab; border-radius: 8px; overscroll-behavior-x: contain; }
+	.tl-host.dragging { cursor: grabbing; }
+	.tl-host svg { display: block; user-select: none; -webkit-user-select: none; }
+	.tl-host .lane-label { fill: var(--muted); font-size: 11.5px; }
+	.tl-host .lane-sub { fill: var(--dim); font-size: 9.5px; letter-spacing: .06em; }
+	.tl-host .grid { stroke: var(--grid1); stroke-width: 1; }
+	.tl-host .lane-line { stroke: var(--line); stroke-width: 1; }
+	.tl-host .axis { stroke: var(--line-hi); stroke-width: 1; }
+	.tl-host .tick-label { fill: var(--dim); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+	.tl-host .zero { stroke: var(--line-hi); stroke-width: 1; }
+	.tl-host .adv-pos { fill: var(--accent); fill-opacity: .2; }
+	.tl-host .adv-neg { fill: var(--loss); fill-opacity: .2; }
+	.tl-host .adv-line-pos { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; }
+	.tl-host .adv-line-neg { fill: none; stroke: var(--loss); stroke-width: 1.5; stroke-linejoin: round; }
+	.tl-host .ph { stroke: var(--accent2); stroke-width: 1.5; }
+	.tl-host .ph-head { fill: var(--accent2); }
+	.tl-host .sel { fill: none; stroke: var(--text); stroke-width: 1.5; }
+	.tl-host .dot { stroke: var(--panel); stroke-width: 1.5; }
+	.tl-host .dot-edge { stroke: var(--mark-edge); stroke-width: 1; fill: none; }
+	.tl-host .death { stroke-width: 1.5; stroke-dasharray: 3 3; }
+	.tl-host .death-label { font-size: 10.5px; font-weight: 650; }
+	.tip {
+		position: absolute; z-index: 5; pointer-events: none; max-width: 260px;
+		background: var(--panel); border: 1px solid var(--line-hi); border-radius: 10px; box-shadow: var(--shadow);
+		padding: 8px 10px; font-size: 12.5px; color: var(--muted); line-height: 1.45;
+	}
+	.tip strong { display: block; color: var(--text); font-weight: 650; font-size: 13px; }
+	.tip .tk { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: var(--c); }
+	.tip .when { color: var(--dim); font-variant-numeric: tabular-nums; }
+	details.table-view { margin-top: 10px; }
+	details.table-view summary { cursor: pointer; color: var(--muted); font-size: 13px; width: max-content; }
+	details.table-view summary:hover { color: var(--text); }
+	.tbl-host { max-height: 360px; overflow: auto; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; }
+	table.ev { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+	table.ev th, table.ev td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+	table.ev th { position: sticky; top: 0; background: var(--panel-2); color: var(--muted); font-weight: 600; }
+	table.ev td .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 6px; box-shadow: 0 0 0 1px var(--mark-edge); }
+	table.ev tr:last-child td { border-bottom: 0; }
+
+	/* ── Replay ────────────────────────────────────────────────────────── */
+	.rp-panel { padding: 12px; }
+	.rp-stage { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--stage); aspect-ratio: 16 / 9; max-height: 620px; }
+	.rp-stage canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+	.rp-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 13px; text-align: center; padding: 16px; }
+	.rp-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 12px; }
+	.btn {
+		display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+		height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line);
+		background: var(--panel-2); color: var(--text); cursor: pointer; font-weight: 600; font-size: 14px;
+		transition: border-color .15s var(--ease), background-color .15s var(--ease);
+	}
+	.btn:hover { border-color: var(--line-hi); }
+	.btn:disabled { opacity: .45; cursor: default; }
+	.btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+	.btn.primary:hover { filter: brightness(1.08); }
+	.btn.play { width: 44px; padding: 0; border-radius: 50%; height: 44px; background: var(--accent); color: #fff; border-color: transparent; }
+	.btn.play svg { width: 18px; height: 18px; }
+	.scrub { flex: 1 1 220px; min-width: 140px; accent-color: var(--accent); height: 28px; margin: 0; }
+	.time { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 9.5em; }
+	.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
+	.seg button { border: 0; background: transparent; padding: 0 10px; height: 32px; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+	.seg button + button { border-left: 1px solid var(--line); }
+	.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+	.live { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+	.live .chip b { min-width: 1.2em; text-align: right; display: inline-block; }
+
+	/* ── Aim map, zones, histogram, quality, jumps ─────────────────────── */
+	.aim-wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; }
+	svg.aim { width: 150px; height: auto; flex: none; display: block; overflow: visible; }
+	svg.aim .margin-box { fill: none; stroke: var(--line); stroke-dasharray: 3 4; }
+	svg.aim .box { fill: var(--wash); stroke: var(--line-hi); stroke-width: 1.5; }
+	svg.aim .guide { stroke: var(--line-hi); stroke-dasharray: 4 4; }
+	svg.aim .zl { fill: var(--dim); font-size: 10px; letter-spacing: .08em; }
+	svg.aim .hit { stroke: var(--panel); stroke-width: 1.5; }
+	svg.aim .hit-edge { fill: none; stroke: var(--mark-edge); stroke-width: 1; }
+	svg.aim .miss { fill: none; stroke: var(--miss); stroke-width: 1.3; }
+	.zones { flex: 1 1 180px; min-width: 170px; display: grid; gap: 10px; }
+	.zrow { display: grid; grid-template-columns: 4.6em 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+	.zrow .zn { color: var(--muted); }
+	.zrow .zv { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; white-space: nowrap; }
+	.zrow .zv small { color: var(--dim); font-weight: 500; margin-left: 4px; }
+	.bar { height: 8px; border-radius: 4px; background: var(--grid1); overflow: hidden; }
+	.bar i { display: block; height: 100%; border-radius: 4px; background: var(--c, var(--accent)); box-shadow: inset 0 0 0 1px var(--mark-edge); min-width: 0; }
+	.hist-host, .jump-host { width: 100%; overflow-x: auto; }
+	.hist-host svg, .jump-host svg { display: block; }
+	.hist-host .grid, .jump-host .grid { stroke: var(--grid1); }
+	.hist-host .axis, .jump-host .axis { stroke: var(--line-hi); }
+	.hist-host .tick-label, .jump-host .tick-label { fill: var(--dim); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+	.hist-host .landed { fill: var(--accent); }
+	.hist-host .missed { fill: var(--miss); }
+	.hist-host .thr { stroke: var(--accent2); stroke-width: 1.5; stroke-dasharray: 5 4; }
+	.hist-host .thr-label { fill: var(--accent2); font-size: 10.5px; font-weight: 600; }
+	.jump-host .band { fill: var(--win); fill-opacity: .14; }
+	.jump-host .band-edge { stroke: var(--win); stroke-opacity: .55; }
+	.jump-host .zero { stroke: var(--muted); stroke-width: 1.5; }
+	.jump-host .region { fill: var(--dim); font-size: 10.5px; letter-spacing: .06em; }
+	.jump-host .ok { fill: var(--win); }
+	.jump-host .bad { fill: var(--loss); }
+	.jump-host .glyph { stroke: var(--on-badge); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+	.qrows { display: grid; gap: 9px; }
+	.qrow { display: grid; grid-template-columns: 8.6em 1fr 2.4em 3.2em; gap: 10px; align-items: center; font-size: 13px; }
+	.qrow .ql { color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: .03em; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
+	.qrow .ql i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; box-shadow: 0 0 0 1px var(--mark-edge); }
+	.qrow .qn { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+	.qrow .qp { text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+	.jsum { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+	@media (max-width: 420px) { .qrow { grid-template-columns: 7.6em 1fr 2em 2.8em; gap: 8px; } }
+
+	/* ── Landing, messages, footer ─────────────────────────────────────── */
+	.land { padding: clamp(20px, 4vw, 36px); }
+	.land h1, .msg h1 { margin: 0 0 10px; font-size: clamp(22px, 3.4vw, 32px); letter-spacing: -.02em; line-height: 1.2; }
+	.land p, .msg p { margin: 0 0 12px; color: var(--muted); max-width: 68ch; }
+	.land ol { margin: 6px 0 18px; padding-left: 1.3em; color: var(--muted); max-width: 68ch; }
+	.land ol li { margin: 4px 0; }
+	.land b, .msg b { color: var(--text); }
+	.paste { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; max-width: 640px; }
+	.paste input {
+		flex: 1 1 260px; min-width: 0; height: 40px; padding: 0 12px; border-radius: 10px;
+		border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: inherit; font-size: 14px;
+	}
+	.paste input::placeholder { color: var(--dim); }
+	.paste .btn { height: 40px; }
+	.paste-err { color: var(--loss-ink); font-size: 13px; min-height: 1.2em; margin: -6px 0 10px; }
+	.msg { padding: clamp(20px, 4vw, 32px); border-left: 3px solid var(--draw); }
+	.msg.bad { border-left-color: var(--loss); }
+	.msg details { margin-top: 6px; color: var(--dim); font-size: 13px; }
+	.msg .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+	.noscript { margin: 16px; padding: 14px 16px; border: 1px solid #3a3f4d; border-radius: 12px; color: #E8EAED; background: #12151C; }
+	.foot {
+		margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--line);
+		display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: space-between; color: var(--dim); font-size: 12.5px;
+	}
+
+	/* ── Motion ────────────────────────────────────────────────────────── */
+	.rise { animation: rise .42s var(--ease) both; }
+	.rise:nth-child(2) { animation-delay: .04s; }
+	.rise:nth-child(3) { animation-delay: .08s; }
+	.rise:nth-child(4) { animation-delay: .12s; }
+	.rise:nth-child(n+5) { animation-delay: .16s; }
+	@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
+	}
+	@media (forced-colors: active) {
+		.badge, .btn.play, .btn.primary, .seg button[aria-pressed="true"] { forced-color-adjust: none; }
+	}
+</style>
+</head>
+<body>
+<noscript><div class="noscript">The KWAMSTER viewer needs JavaScript. The fight is stored inside the link and unpacked in your browser; nothing is sent anywhere.</div></noscript>
+<div class="wrap">
+	<header class="top">
+		<a class="brand" href="#" aria-label="KWAMSTER viewer home">KWAMSTER</a>
+		<button class="icon-btn" id="theme-btn" type="button" aria-label="Switch to light theme" title="Switch theme">
+			<svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+			<svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+		</button>
+	</header>
+	<main id="app" aria-busy="true"></main>
+	<footer class="foot">
+		<span>Data lives entirely in this link. Nothing was uploaded.</span>
+		<span><a href="https://github.com/builtdoor1/kwamster" rel="noopener noreferrer">KWAMSTER by builtdoor</a></span>
+	</footer>
+</div>
+
+<!-- The "Load example" payload: the fragment (without '#') of the golden `example` share vector (DESIGN.md §9.6). -->
+<script id="kw-example" type="text/plain">DdHbb1N1HADw3_f7u5z-ft3WlS72d9Zz1nPaRQ9jKQvJjERdFJzbYjBoSCBK1EHH1rVbd6UzTMZlrGFjV4Q5kpE5ZXOXuHhhQyIxICjiCwlBnzTBRx98UOODhsT9B5_kA4XyUG8q05PMZrvEK7nGtlRfMNnblOlONPU1tnVkmhLtTT2DU7_-JH5fQF6xiGTvXbgfuBZ-OREo1mQCV_BHXKQhIYuCDMAf8FNDUW7cY1_ScsUxJBBthz1t3jFu0VRqi06VvMBYvy6Wo4VDjGUiB-ldKJHnaY2CNvcp1Y-QMX2qx4BjZa_L91Q9IYORoOrieCKyAc6RvZUczlg-kkvcRnq-lKiDgk9bSHJIBfnE9JykWAc2bxe8k679hdG5iOe0-r4jYsbcIkcmUgAjbsxrfrwP4f1og9OhNzgOxUA3P1yg5HT0yQONRZU-fi5SSI7-t8o2DVwOzgxyejz-ompH1u1U-0kxnaDt2CHZ6WhBca5kgZDh8qDqRD4RsZwjtQ-EmIvuUB0Gu-gKJ732GhdnrRKn8dl5Kj6wQjr1RgBhOV7pZLc-T_mMReVI8gaBSSfitV97hHQsYqsUgXwsrJsfBIANW1Gvt3QD6URsm5f98A-EMZvK_oF_KR-3t8m8O8DJkKPl5FQjwbxpe92WH3g-XACZeQPYcVdhhvPxyO6qXOgJJHldTQ-DzAe-RnI5VqnfdJcFXA7zzQahUw0uwEVru5-kVZ9go-44eF1BW-BseQA69zxk7Jwp5bFLa5TMuqY8OfAX4bNuSL1LybRukGMnfZxciAund0fMwDO2rbKMT9kH6OHvQSdvf4MFs-Z-OXWIIPuoDFTWYHOxqD9JvZZHnuJLsQq5dOMHhPXyKq_3512MfW7Z0LnaZ5Cb0aKqlq1VHK6bnhysaSBwXQdUt2CLllathFyNb5Idp6PuFhNLFnU6459StmIm5Im3q5F8FjFVl8Cb7jM6_Y-BvvtayFO_xTh-Gyf1R_e9inin1PEnuXO47k-qVuztcnLnYxDLZR7k6C7qW9MMk8iuRKpVO4UVs0e1IP_KMp23riYYfmG60HWl3odLjoethM2VB73W2lUOq2XgpHf_TWE9ynV3vcHhY92AaQIXLKbb9ocpjFrPeemdISqGnT0kV1HH6Snb15JeW6TsbOlLKodi2K5RrQCXtK8qdy9h0OlwnP0P</script>
+
+<script id="kw-decoder">
+/*
+ * KWAMSTER share payload decoder (DESIGN.md §9). DOM-free: it only needs DecompressionStream, Blob,
+ * atob, TextDecoder and Uint8Array, so tools/viewer-check.mjs can run it in node:vm unchanged.
+ * Mirrors record/SharePayloadCodec.decode byte for byte; decode() returns a plain object with exactly
+ * the field names of SharePayloadCodec.Decoded (and Decoded.Ev for each event).
+ */
+(function (root) {
+	'use strict';
+
+	var FLAGS = Object.freeze({ POSITIONS: 1, DOWNSAMPLED: 2, DAMAGE: 4, SERVER: 8, MULTI: 16 });
+	var KINDS = Object.freeze({ HIT: 0, MISS: 1, TAKEN: 2, JUMP: 3, DEATH: 4 });
+	/** Summary fields S1..S42, plus S43/S44 with the DAMAGE flag. S38 (index 37) is signed. */
+	var SUMMARY_FIELDS = 42;
+	var SIGNED_SUMMARY_INDEX = 37;
+	/**
+	 * A v1 payload is a few KB (the longest link the mod writes is 8000 characters); anything inflating
+	 * past this is not a KWAMSTER link. Same cap as SharePayloadCodec.MAX_PAYLOAD_BYTES.
+	 */
+	var MAX_INFLATED_BYTES = 1 << 16;
+	var MAX_INT = 2147483647, MIN_INT = -2147483648;
+	/** SharePayloadCodec.MAX_START_EPOCH_SEC: 2^53 − 1, the largest integer a JS number holds exactly. */
+	var MAX_START_EPOCH_SEC = 9007199254740991;
+	/**
+	 * What the viewer agrees to draw (validate). A decoded link can hold numbers no KWAMSTER build
+	 * writes; the page loops over several of them (timeline ticks, jump ticks, events), so a crafted
+	 * link must be refused before rendering, not after it has frozen the tab. Every bound is well above
+	 * what the mod can produce: the 8000-character link cap fits about 1000 events, the settings cap
+	 * the jump windows at 400 ms and the combo and advantage windows at 10 s, and distances at 200 blocks.
+	 */
+	var LIMITS = Object.freeze({
+		MAX_EVENTS: 20000,
+		MAX_TOTAL_EVENTS: 1000000,
+		MAX_DURATION_MS: 24 * 3600 * 1000,
+		MAX_JUMP_MS: 1000,
+		MAX_WINDOW_MS: 60000,
+		MAX_THREE_BLOCK_CM: 1000,
+		MAX_DIST_DM: 2000,
+		MAX_NAME_CHARS: 64,
+		MAX_SERVER_CHARS: 128
+	});
+
+	/** Error with a stable `code`: BASE64, INFLATE, TOO_LARGE, VERSION, TRUNCATED, MALFORMED, INPUT. */
+	function DecodeError(message, code, detail) {
+		var e = new Error(message);
+		e.name = 'DecodeError';
+		e.code = code;
+		if (detail !== undefined) e.detail = detail;
+		return e;
+	}
+
+	function Reader(bytes) {
+		this.b = bytes;
+		this.p = 0;
+	}
+	Reader.prototype.u8 = function () {
+		if (this.p >= this.b.length) throw DecodeError('The link data ends early.', 'TRUNCATED');
+		return this.b[this.p++];
+	};
+	Reader.prototype.i8 = function () {
+		var b = this.u8();
+		return b > 127 ? b - 256 : b;
+	};
+	function malformed() { return DecodeError('A number in the link data is malformed.', 'MALFORMED'); }
+	/**
+	 * Unsigned LEB128, at most 10 bytes and 64 bits (a 10th byte above 1 is rejected, as in
+	 * SharePayloadCodec.Reader.varLong). Multiplication instead of shifts keeps values exact above 2^31;
+	 * above 2^53 they are approximate, which only matters for values the callers reject anyway.
+	 */
+	Reader.prototype.uleb = function () {
+		var result = 0, mul = 1, n = 0, b;
+		do {
+			if (n === 10) throw malformed();
+			b = this.u8();
+			if (n === 9 && (b & 0x7f) > 1) throw malformed();
+			result += (b & 0x7f) * mul;
+			mul *= 128;
+			n++;
+		} while (b & 0x80);
+		return result;
+	};
+	/** An unsigned LEB128 that must fit a non-negative Java int, like SharePayloadCodec.Reader.varInt. */
+	Reader.prototype.varInt = function () {
+		var v = this.uleb();
+		if (v > MAX_INT) throw malformed();
+		return v;
+	};
+	Reader.prototype.varLong = function () { return this.uleb(); };
+	Reader.prototype.zig = function () {
+		var v = this.varLong();
+		return (v % 2 === 0) ? v / 2 : -(v + 1) / 2;
+	};
+	/** A zigzag value that must fit a Java int, like SharePayloadCodec.Reader.zigInt. */
+	Reader.prototype.zigInt = function () {
+		var v = this.zig();
+		if (v > MAX_INT || v < MIN_INT) throw malformed();
+		return v;
+	};
+	/** A running position plus a delta, rejected past the int range (SharePayloadCodec.addPosition). */
+	function addPosition(position, delta) {
+		var sum = position + delta;
+		if (sum > MAX_INT || sum < MIN_INT) throw malformed();
+		return sum;
+	}
+	/**
+	 * UTF-8 for the name fields, created on first use. ignoreBOM: a leading U+FEFF is part of the name, as
+	 * in Java's new String(bytes, UTF_8) (SharePayloadCodec.Reader.str); TextDecoder would drop it.
+	 */
+	var utf8 = null;
+	Reader.prototype.str = function () {
+		var len = this.varInt();
+		if (this.p + len > this.b.length) throw DecodeError('The link data ends early.', 'TRUNCATED');
+		if (!utf8) utf8 = new TextDecoder('utf-8', { ignoreBOM: true });
+		var s = utf8.decode(this.b.subarray(this.p, this.p + len));
+		this.p += len;
+		return s;
+	};
+
+	function toBytes(bytes) {
+		if (bytes == null) throw DecodeError('Nothing to decode.', 'INPUT');
+		if (Object.prototype.toString.call(bytes) === '[object ArrayBuffer]') return new Uint8Array(bytes);
+		if (typeof bytes.subarray === 'function' && typeof bytes.length === 'number') return bytes;
+		if (typeof bytes.length === 'number') return Uint8Array.from(bytes);
+		throw DecodeError('Nothing to decode.', 'INPUT');
+	}
+
+	/** Payload bytes (already inflated) → Decoded. Throws a DecodeError on anything it cannot read. */
+	function decode(input) {
+		var r = new Reader(toBytes(input));
+		var version = r.u8();
+		if (version !== 1) {
+			throw DecodeError('This link was made by a newer KWAMSTER. Refresh the page; if it persists, the site has not been updated yet.', 'VERSION', version);
+		}
+		var flags = r.u8();
+		var multi = (flags & FLAGS.MULTI) !== 0;
+		var positions = (flags & FLAGS.POSITIONS) !== 0;
+		var player = r.str();
+		var opponents = [r.str()];
+		if (multi) {
+			var extra = r.u8();
+			if (extra < 1 || extra > 3) throw DecodeError('The link names an impossible number of opponents.', 'MALFORMED', 'opponents ' + (extra + 1));
+			for (var x = 0; x < extra; x++) opponents.push(r.str());
+		}
+		var server = (flags & FLAGS.SERVER) !== 0 ? r.str() : null;
+		var startEpochSec = r.varLong();
+		if (startEpochSec > MAX_START_EPOCH_SEC) throw malformed();
+		var durationMs = r.varInt();
+		var resultReason = r.u8();
+		var pingMs = r.varInt();
+		var threeBlockCm = r.varInt();
+		var jumpMinMs = r.varInt();
+		var jumpMaxMs = r.varInt();
+		var jumpAttemptMs = r.varInt();
+		var comboTimeoutMs = r.varInt();
+		var advantageWindowMs = r.varInt();
+
+		var summary = [];
+		for (var s = 0; s < SUMMARY_FIELDS; s++) summary.push(s === SIGNED_SUMMARY_INDEX ? r.zigInt() : r.varInt());
+		if ((flags & FLAGS.DAMAGE) !== 0) {
+			summary.push(r.varInt());
+			summary.push(r.varInt());
+		}
+
+		var totalEvents = r.varInt();
+		var eventCount = r.varInt();
+		var events = [];
+		var truncated = false;
+		var tCs = 0, sxDm = 0, szDm = 0;
+		for (var i = 0; i < eventCount; i++) {
+			tCs += r.varInt();
+			if (tCs > MAX_INT) throw DecodeError('An event time in the link is out of range.', 'MALFORMED');
+			var tag = r.u8();
+			var kind = tag & 7;
+			if (kind > KINDS.DEATH) {
+				// Reserved kind (5..7): a future writer. Stop here and render what was read.
+				truncated = true;
+				break;
+			}
+			var arg = (tag >> 3) & 7;
+			var noReg = kind === KINDS.HIT && (tag & 0x40) !== 0; // bit 6 is NO-REG on a HIT only (§9.3)
+			var opp = 0;
+			if (multi && (kind <= KINDS.TAKEN || (kind === KINDS.DEATH && (arg & 1) === 0))) opp = r.u8();
+			var reachQ = -1, aimH = 0, aimV = 0, deltaMs = 0;
+			if (kind === KINDS.HIT || kind === KINDS.MISS) {
+				reachQ = r.u8();
+				aimH = r.i8();
+				aimV = r.i8();
+			} else if (kind === KINDS.TAKEN) {
+				reachQ = r.u8();
+			} else if (kind === KINDS.JUMP) {
+				deltaMs = r.zigInt();
+			}
+			var hasPos = false, bearing = 0, distDm = 0, evSx = 0, evSz = 0;
+			if (positions && kind <= KINDS.TAKEN) {
+				sxDm = addPosition(sxDm, r.zigInt());
+				szDm = addPosition(szDm, r.zigInt());
+				bearing = r.u8();
+				distDm = r.varInt();
+				hasPos = true;
+				evSx = sxDm;
+				evSz = szDm;
+			}
+			events.push({
+				tCs: tCs, kind: kind, arg: arg, noReg: noReg, opp: opp,
+				reachQ: reachQ, aimH: aimH, aimV: aimV, deltaMs: deltaMs,
+				hasPos: hasPos, sxDm: evSx, szDm: evSz, bearing: bearing, distDm: distDm
+			});
+		}
+
+		return {
+			version: version,
+			flags: flags,
+			player: player,
+			opponents: opponents,
+			server: server,
+			startEpochSec: startEpochSec,
+			durationMs: durationMs,
+			result: resultReason & 3,
+			endReason: resultReason >> 2,
+			pingMs: pingMs,
+			threeBlockCm: threeBlockCm,
+			jumpMinMs: jumpMinMs,
+			jumpMaxMs: jumpMaxMs,
+			jumpAttemptMs: jumpAttemptMs,
+			comboTimeoutMs: comboTimeoutMs,
+			advantageWindowMs: advantageWindowMs,
+			summary: summary,
+			totalEvents: totalEvents,
+			events: events,
+			truncated: truncated
+		};
+	}
+
+	/**
+	 * Decoded → null when the viewer may draw it, else a short reason. decode() accepts every byte
+	 * sequence the Java reference accepts; this is the viewer's own, stricter gate against links whose
+	 * numbers (event count, times, windows) no KWAMSTER build writes and that would make the page loop
+	 * for minutes or run out of memory (see LIMITS). Cheap: one pass over the events.
+	 */
+	function validate(d) {
+		if (!d || !d.events || !d.summary || !d.opponents) return 'not a decoded fight';
+		var n = d.events.length;
+		if (n > LIMITS.MAX_EVENTS) return 'too many events (' + n + ')';
+		if (d.totalEvents > LIMITS.MAX_TOTAL_EVENTS || d.totalEvents < n) return 'impossible event total (' + d.totalEvents + ')';
+		if (d.durationMs > LIMITS.MAX_DURATION_MS) return 'fight too long (' + d.durationMs + ' ms)';
+		if (d.jumpMinMs > LIMITS.MAX_JUMP_MS || d.jumpMaxMs > LIMITS.MAX_JUMP_MS || d.jumpAttemptMs > LIMITS.MAX_JUMP_MS) return 'jump window out of range';
+		if (d.comboTimeoutMs > LIMITS.MAX_WINDOW_MS || d.advantageWindowMs > LIMITS.MAX_WINDOW_MS) return 'combo or advantage window out of range';
+		if (d.threeBlockCm > LIMITS.MAX_THREE_BLOCK_CM) return '3-block threshold out of range';
+		if (String(d.player).length > LIMITS.MAX_NAME_CHARS) return 'player name too long';
+		for (var o = 0; o < d.opponents.length; o++) {
+			if (String(d.opponents[o]).length > LIMITS.MAX_NAME_CHARS) return 'opponent name too long';
+		}
+		if (d.server != null && String(d.server).length > LIMITS.MAX_SERVER_CHARS) return 'server name too long';
+		var maxCs = LIMITS.MAX_DURATION_MS / 10 + 1;
+		for (var i = 0; i < n; i++) {
+			var e = d.events[i];
+			if (e.tCs > maxCs) return 'event time out of range (' + e.tCs * 10 + ' ms)';
+			if (e.opp >= d.opponents.length) return 'event names opponent ' + (e.opp + 1) + ' of ' + d.opponents.length;
+			if (e.distDm > LIMITS.MAX_DIST_DM) return 'distance out of range';
+		}
+		return null;
+	}
+
+	/** base64url (no padding; padding and a leading '#' are tolerated) → bytes. */
+	function b64urlToBytes(str) {
+		var s = String(str == null ? '' : str).replace(/\s+/g, '').replace(/^#/, '').replace(/=+$/, '');
+		if (!/^[A-Za-z0-9_-]*$/.test(s) || s.length % 4 === 1) {
+			throw DecodeError('The link contains characters that do not belong in it.', 'BASE64');
+		}
+		var b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+		while (b64.length % 4 !== 0) b64 += '=';
+		var bin;
+		try {
+			bin = atob(b64);
+		} catch (e) {
+			throw DecodeError('The link contains characters that do not belong in it.', 'BASE64');
+		}
+		var out = new Uint8Array(bin.length);
+		for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+		return out;
+	}
+
+	/** Raw-deflate bytes → inflated bytes (Promise). */
+	function inflateRaw(bytes) {
+		return new Promise(function (resolve, reject) {
+			var reader;
+			try {
+				var stream = new Blob([toBytes(bytes)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+				reader = stream.getReader();
+			} catch (e) {
+				reject(DecodeError('The link data could not be unpacked.', 'INFLATE', String(e && e.message || e)));
+				return;
+			}
+			var chunks = [];
+			var total = 0;
+			function pump() {
+				reader.read().then(function (res) {
+					if (res.done) {
+						var out = new Uint8Array(total);
+						var off = 0;
+						for (var i = 0; i < chunks.length; i++) {
+							out.set(chunks[i], off);
+							off += chunks[i].length;
+						}
+						resolve(out);
+						return;
+					}
+					total += res.value.length;
+					if (total > MAX_INFLATED_BYTES) {
+						try { reader.cancel(); } catch (e) { /* already closed */ }
+						reject(DecodeError('The link data is far too large to be a KWAMSTER fight.', 'TOO_LARGE'));
+						return;
+					}
+					chunks.push(res.value);
+					pump();
+				}, function (e) {
+					reject(DecodeError('The link data is damaged and could not be unpacked.', 'INFLATE', String(e && e.message || e)));
+				});
+			}
+			pump();
+		});
+	}
+
+	/** The URL fragment (with or without '#') → Decoded (Promise). */
+	function decodeFragment(str) {
+		return new Promise(function (resolve) {
+			resolve(inflateRaw(b64urlToBytes(str)));
+		}).then(decode);
+	}
+
+	/**
+	 * False when the browser cannot inflate raw deflate. Chrome/Edge 80–102 have DecompressionStream
+	 * but reject 'deflate-raw', so a typeof check alone is not enough (DESIGN.md §13 risk 7).
+	 */
+	function isSupported() {
+		try {
+			if (typeof DecompressionStream !== 'function' || typeof Blob !== 'function') return false;
+			if (typeof TextDecoder !== 'function' || typeof atob !== 'function') return false;
+			if (typeof Blob.prototype.stream !== 'function') return false;
+			new DecompressionStream('deflate-raw');
+			return true;
+		} catch (e) {
+			return false;
+		}
+	}
+
+	root.KwDecoder = Object.freeze({
+		VERSION: 1,
+		FLAGS: FLAGS,
+		KINDS: KINDS,
+		LIMITS: LIMITS,
+		MAX_INFLATED_BYTES: MAX_INFLATED_BYTES,
+		isSupported: isSupported,
+		b64urlToBytes: b64urlToBytes,
+		inflateRaw: inflateRaw,
+		decode: decode,
+		decodeFragment: decodeFragment,
+		validate: validate
+	});
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+
+<script id="kw-viewer">
+(function () {
+	'use strict';
+
+	var KD = window.KwDecoder;
+	var root = document.documentElement;
+	var app = document.getElementById('app');
+	var FONT = 'ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif';
+	var SVGNS = 'http://www.w3.org/2000/svg';
+	var REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+	var K = { HIT: 0, MISS: 1, TAKEN: 2, JUMP: 3, DEATH: 4 };
+	var F = { POSITIONS: 1, DOWNSAMPLED: 2, DAMAGE: 4, SERVER: 8, MULTI: 16 };
+	/** Summary indices (S-number − 1), §9.3. */
+	var S = {
+		SWINGS: 0, LANDED: 1, CRITS: 2, SPRINT: 3, TAKEN: 4, PROJ: 5,
+		REACH_AVG: 6, REACH_MAX: 7, MISS_AVG: 8, MISS_MAX: 9, OVER: 10,
+		AIM_CENTER: 11, AIM_EDGE: 12, AIM_HIGH: 13, AIM_LOW: 14, QUALITY: 15,
+		BEST_COMBO: 22, COMBOS: 23, BEST_COMBO_TAKEN: 24, COMBOS_TAKEN: 25, BEST_STREAK: 26,
+		INT_AVG: 27, INT_SD: 28, INT_N: 29,
+		J_ATT: 30, J_OK: 31, J_EARLY: 32, J_OPP: 33,
+		TRADES: 34, T_WON: 35, T_LOST: 36, MOMENTUM: 37,
+		CONFIRMED: 38, NOREG: 39, ADV_YOU: 40, ADV_THEM: 41, DMG_DEALT: 42, DMG_TAKEN: 43
+	};
+	/** Tier labels and colours: the §3.4 defaults, by HitQuality.code(). */
+	var TIERS = [
+		{ label: '3-BLOCK CRIT', color: '#FFD43B' },
+		{ label: '3-BLOCK SPRINT', color: '#3DDC97' },
+		{ label: '3-BLOCK', color: '#B794F6' },
+		{ label: 'CRIT', color: '#FF922B' },
+		{ label: 'SPRINT', color: '#4DABF7' },
+		{ label: 'HIT', color: '#E9ECEF' },
+		{ label: 'WEAK', color: '#868E96' }
+	];
+	var NOREG_COLOR = '#868E96';
+	/** Text on the replay's HUD-style pills, whose dark glass backdrop is the same in both themes. */
+	var PILL_TEXT = '#E8EAED';
+	var RESULTS = ['DRAW', 'WIN', 'LOSS'];
+	var REASONS = ['Went idle', 'Opponent died', 'You died', 'Opponent left', 'Opponent out of range',
+		'Disconnected', 'World changed', 'Game closed', 'Tracking turned off'];
+	var ZONES = ['CENTER', 'EDGE', 'HIGH', 'LOW'];
+
+	// ── Small utilities ─────────────────────────────────────────────────────
+	function esc(s) {
+		return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+	}
+	function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+	function pad2(n) { return (n < 10 ? '0' : '') + n; }
+	/** Whole centimetres as blocks with two decimals, exactly: 295 → "2.95". */
+	function cmText(cm) { cm = Math.max(0, Math.floor(cm)); return Math.floor(cm / 100) + '.' + pad2(cm % 100); }
+	/**
+	 * A reach in blocks with two decimals, rounded DOWN like StatFormat.reach in game, so the page never
+	 * shows 2.95 for a reach that was not 3-block eligible. Decoded reaches are 1/40-block steps, already
+	 * rounded down by the mod (SharePayloadCodec.reachQ): 118 → "2.95", 117 → "2.92", 119 → "2.97".
+	 */
+	function reachQText(q) { return cmText(q * 5 / 2); }
+	/** Any distance in blocks, rounded down to hundredths (the tolerance absorbs q/40 not being exact in binary). */
+	function blocksText(b) { return cmText(b * 100 + 1e-6); }
+	function minus(n) { return n < 0 ? '−' + Math.abs(n) : String(n); }
+	function signed(n) { return n > 0 ? '+' + n : minus(n); }
+	function pct(part, whole) { return whole > 0 ? Math.round(100 * part / whole) + '%' : '—'; }
+	function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+	/** "0:42" or "1:02:03" (StatFormat.duration). */
+	function duration(ms) {
+		var s = Math.floor(Math.max(0, ms) / 1000);
+		var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+		return h > 0 ? h + ':' + pad2(m) + ':' + pad2(sec) : m + ':' + pad2(sec);
+	}
+	/** "0:12.3" with tenths, for the replay clock and tooltips. */
+	function clockTime(ms) {
+		var tenths = Math.floor(Math.max(0, ms) / 100);
+		var s = Math.floor(tenths / 10);
+		return Math.floor(s / 60) + ':' + pad2(s % 60) + '.' + (tenths % 10);
+	}
+	function zoneOf(h, v) {
+		if (v >= 1 / 3) return 2;
+		if (v <= -1 / 3) return 3;
+		if (Math.abs(h) >= 0.5) return 1;
+		return 0;
+	}
+	function upperBound(arr, t) { // first index with arr[i] > t
+		var lo = 0, hi = arr.length;
+		while (lo < hi) { var mid = (lo + hi) >> 1; if (arr[mid] <= t) lo = mid + 1; else hi = mid; }
+		return lo;
+	}
+	function lowerBound(arr, t) { // first index with arr[i] >= t
+		var lo = 0, hi = arr.length;
+		while (lo < hi) { var mid = (lo + hi) >> 1; if (arr[mid] < t) lo = mid + 1; else hi = mid; }
+		return lo;
+	}
+	function cssVar(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
+	/** Usable width in whole CSS px. clientWidth rounds (317.6 → 318), which would overflow by a fraction and show a scrollbar. */
+	function innerWidthOf(el) {
+		var cs = getComputedStyle(el);
+		var w = el.getBoundingClientRect().width - parseFloat(cs.borderLeftWidth || 0) - parseFloat(cs.borderRightWidth || 0)
+			- parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+		return Math.max(0, Math.floor(w));
+	}
+	function initials(name) {
+		var clean = String(name || '?').replace(/[^A-Za-z0-9_]/g, '');
+		if (!clean) return '?';
+		var parts = clean.split('_').filter(Boolean);
+		if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+		var hump = clean.slice(1).search(/[A-Z0-9]/);
+		if (hump >= 0 && /[a-z]/.test(clean[0] + clean.slice(1, hump + 1))) return (clean[0] + clean[hump + 1]).toUpperCase();
+		return clean[0].toUpperCase();
+	}
+
+	// ── Lifecycle (hashchange rebuilds the page) ────────────────────────────
+	var cleanups = [];
+	var bootToken = 0;
+	function onCleanup(fn) { cleanups.push(fn); }
+	function teardown() {
+		while (cleanups.length) {
+			try { cleanups.pop()(); } catch (e) { /* keep tearing down */ }
+		}
+	}
+	function observeResize(el, fn) {
+		var last = -1;
+		var cb = function () {
+			var w = el.clientWidth;
+			if (w !== last) { last = w; fn(); }
+		};
+		if (typeof ResizeObserver === 'function') {
+			var ro = new ResizeObserver(function () { cb(); });
+			ro.observe(el);
+			onCleanup(function () { ro.disconnect(); });
+		} else {
+			window.addEventListener('resize', cb);
+			onCleanup(function () { window.removeEventListener('resize', cb); });
+		}
+	}
+
+	// ── Model: decoded payload → viewer data ────────────────────────────────
+	function buildModel(d) {
+		var multi = (d.flags & F.MULTI) !== 0;
+		var positions = (d.flags & F.POSITIONS) !== 0;
+		var names = d.opponents.map(function (n, i) { return n || ('Opponent ' + (i + 1)); });
+		var evs = d.events.map(function (e, i) {
+			var o = {
+				i: i, t: e.tCs * 10, kind: e.kind, arg: e.arg, noReg: e.noReg && e.kind === K.HIT, opp: e.opp,
+				reachQ: e.reachQ, reach: e.reachQ >= 0 ? e.reachQ / 40 : null,
+				h: e.aimH / 100, v: e.aimV / 100, deltaMs: e.deltaMs, hasPos: e.hasPos
+			};
+			if (e.hasPos) {
+				var th = e.bearing * 2 * Math.PI / 256, dist = e.distDm / 10;
+				o.sx = e.sxDm / 10;
+				o.sz = e.szDm / 10;
+				o.ox = o.sx + dist * Math.cos(th);
+				o.oz = o.sz + dist * Math.sin(th);
+				o.dist = dist;
+			}
+			if (e.kind === K.HIT) o.q = clamp(e.arg, 0, 6);
+			else if (e.kind === K.MISS) o.over = (e.arg & 1) === 1;
+			else if (e.kind === K.TAKEN) o.ground = (e.arg & 1) === 1;
+			else if (e.kind === K.JUMP) {
+				o.early = e.deltaMs < 0;
+				o.ok = !o.early && e.deltaMs >= d.jumpMinMs && e.deltaMs <= d.jumpMaxMs;
+			} else if (e.kind === K.DEATH) o.youDied = (e.arg & 1) === 1;
+			return o;
+		});
+		var lastT = evs.length ? evs[evs.length - 1].t : 0;
+		var m = {
+			d: d, evs: evs, names: names, multi: multi, positions: positions,
+			damage: (d.flags & F.DAMAGE) !== 0, downsampled: (d.flags & F.DOWNSAMPLED) !== 0,
+			sum: d.summary, tEnd: Math.max(d.durationMs, lastT, 1000),
+			times: evs.map(function (e) { return e.t; }),
+			// A v1 link has at most one DEATH; the replay redraws every death mark on every frame, so only a few are kept.
+			deaths: evs.filter(function (e) { return e.kind === K.DEATH; }).slice(0, MAX_DEATH_MARKS)
+		};
+
+		// Momentum state after every event (§5.5): dealt/taken chains with the H14 timeout, the hit
+		// streak, and the opponent of the latest event. NO-REG hits neither extend nor break anything.
+		var timeout = Math.max(0, d.comboTimeoutMs);
+		var dl = 0, tl = 0, lastD = 0, lastK = 0, streak = 0, lopp = -1;
+		var dTimes = [], kTimes = [];
+		evs.forEach(function (e) {
+			if (e.kind === K.HIT && !e.noReg) {
+				if (dl > 0 && timeout > 0 && e.t - lastD > timeout) dl = 0;
+				dl++; lastD = e.t; tl = 0; streak++;
+				dTimes.push(e.t);
+			} else if (e.kind === K.TAKEN) {
+				if (tl > 0 && timeout > 0 && e.t - lastK > timeout) tl = 0;
+				tl++; lastK = e.t; dl = 0;
+				kTimes.push(e.t);
+			} else if (e.kind === K.MISS) {
+				streak = 0;
+			}
+			if (e.kind <= K.TAKEN || (e.kind === K.DEATH && !e.youDied)) lopp = e.opp;
+			e.st = { dl: dl, lastD: lastD, tl: tl, lastK: lastK, streak: streak, lopp: lopp };
+		});
+		var firstOpp = 0;
+		for (var j = 0; j < evs.length; j++) if (evs[j].kind <= K.TAKEN) { firstOpp = evs[j].opp; break; }
+		var win = Math.max(1, d.advantageWindowMs);
+
+		m.stateAt = function (t) {
+			var idx = upperBound(m.times, t) - 1;
+			var st = idx >= 0 ? evs[idx].st : null;
+			var combo = 0, comboTaken = 0;
+			if (st) {
+				combo = st.dl > 0 && !(timeout > 0 && t - st.lastD > timeout) ? st.dl : 0;
+				comboTaken = st.tl > 0 && !(timeout > 0 && t - st.lastK > timeout) ? st.tl : 0;
+			}
+			return {
+				combo: combo, comboTaken: comboTaken, streak: st ? st.streak : 0,
+				opp: st && st.lopp >= 0 ? st.lopp : firstOpp, index: idx
+			};
+		};
+		/** A(t), the AdvantageModel formula over the decoded events. */
+		m.advantage = function (t) {
+			var st = m.stateAt(t);
+			var dn = upperBound(dTimes, t) - upperBound(dTimes, t - win);
+			var kn = upperBound(kTimes, t) - upperBound(kTimes, t - win);
+			var exch = (dn - kn) / Math.max(dn + kn, 1);
+			var c = st.combo >= 1 && st.comboTaken === 0 ? Math.min(st.combo, 3) / 3
+				: st.comboTaken >= 1 && st.combo === 0 ? -Math.min(st.comboTaken, 3) / 3 : 0;
+			return clamp(0.5 * c + 0.5 * exch, -1, 1);
+		};
+
+		// Position tracks: you from every positioned event, each opponent only from events against it.
+		m.selfKeys = [];
+		m.oppKeys = names.map(function () { return []; });
+		evs.forEach(function (e) {
+			if (!e.hasPos) return;
+			m.selfKeys.push({ t: e.t, x: e.sx, z: e.sz });
+			if (m.oppKeys[e.opp]) m.oppKeys[e.opp].push({ t: e.t, x: e.ox, z: e.oz });
+		});
+		m.selfKeys.times = m.selfKeys.map(function (k) { return k.t; });
+		m.oppKeys.forEach(function (keys) { keys.times = keys.map(function (k) { return k.t; }); });
+		// Distance proxy for links without positions: the reach of each swing or hit taken.
+		m.distKeys = evs.filter(function (e) { return e.reach != null; }).map(function (e) { return { t: e.t, x: e.reach, z: 0 }; });
+		m.distKeys.times = m.distKeys.map(function (k) { return k.t; });
+		return m;
+	}
+
+	var MAX_DEATH_MARKS = 4;
+
+	function trackAt(keys, t) {
+		if (!keys.length) return null;
+		var i = upperBound(keys.times, t);
+		if (i <= 0) return { x: keys[0].x, z: keys[0].z };
+		if (i >= keys.length) return { x: keys[keys.length - 1].x, z: keys[keys.length - 1].z };
+		var a = keys[i - 1], b = keys[i];
+		var span = b.t - a.t;
+		var k = span > 0 ? (t - a.t) / span : 1;
+		return { x: a.x + (b.x - a.x) * k, z: a.z + (b.z - a.z) * k };
+	}
+
+	function oppName(m, i) { return m.names[i] != null ? m.names[i] : 'Opponent ' + (i + 1); }
+	function oppVar(i) { return 'var(--o' + (((i % 4) + 4) % 4) + ')'; }
+	function oppTextVar(i) { return 'var(--o' + (((i % 4) + 4) % 4) + 't)'; }
+
+	/** Tooltip/table description of one event: a colour key, a title and detail rows. */
+	function describe(m, e) {
+		var vs = m.multi ? oppName(m, e.opp) : null;
+		var rows = [];
+		switch (e.kind) {
+			case K.HIT: {
+				var tier = TIERS[e.q];
+				rows.push(reachQText(e.reachQ) + ' blocks reach');
+				rows.push('Aim ' + ZONES[zoneOf(e.h, e.v)].toLowerCase() + ' (h ' + e.h.toFixed(2) + ', v ' + e.v.toFixed(2) + ')');
+				if (e.noReg) rows.push('Into hurt immunity: counted, but no combo or sound');
+				if (vs) rows.push('On ' + vs);
+				return { color: e.noReg ? NOREG_COLOR : tier.color, title: e.noReg ? 'NO-REG ' + tier.label : tier.label, rows: rows };
+			}
+			case K.MISS:
+				rows.push(reachQText(e.reachQ) + ' blocks' + (e.over ? ', beyond your attack range' : ''));
+				if (vs) rows.push('At ' + vs);
+				return { color: e.over ? cssVar('--miss-over') : cssVar('--miss'), title: e.over ? 'Miss (over reach)' : 'Miss', rows: rows };
+			case K.TAKEN:
+				rows.push(reachQText(e.reachQ) + ' blocks attacker reach');
+				rows.push(e.ground ? 'You were on the ground' : 'You were in the air');
+				if (vs) rows.push('From ' + vs);
+				return { color: cssVar('--loss'), title: 'Hit taken', rows: rows };
+			case K.JUMP:
+				rows.push(signed(e.deltaMs) + ' ms game time (' + (e.early ? 'jumped before the hit' : e.ok ? 'inside the window' : 'outside the window') + ')');
+				return { color: e.ok ? cssVar('--win') : cssVar('--loss'), title: e.ok ? 'Jump reset ✔' : e.early ? 'Jump reset ✘ early' : 'Jump reset ✘ late', rows: rows };
+			default:
+				return {
+					color: e.youDied ? cssVar('--loss') : cssVar('--win'),
+					title: e.youDied ? 'You died' : oppName(m, e.opp) + ' died', rows: []
+				};
+		}
+	}
+
+	// ── Page states ─────────────────────────────────────────────────────────
+	function setTitle(t) { document.title = t; }
+
+	function renderLanding() {
+		setTitle('KWAMSTER fight replay');
+		var hasExample = !!exampleFragment();
+		app.innerHTML =
+			'<section class="panel land rise">' +
+			'<h1>Fight replays that live in the link</h1>' +
+			'<p>KWAMSTER is a client-side PvP mod for Minecraft 1.21.11 (Fabric). It grades every hit, tracks combos, reach, aim and jump resets, and turns each fight into a short link. This page unpacks that link in your browser. Nothing is uploaded and nothing is stored.</p>' +
+			'<ol>' +
+			'<li>Install KWAMSTER together with Fabric API and Cloth Config.</li>' +
+			'<li>Fight someone. When the fight ends, click <b>[Copy link]</b> or <b>[Open]</b> in the chat summary, or pick any fight in <b>Saved fights</b>.</li>' +
+			'<li>Open the link, or paste it below.</li>' +
+			'</ol>' +
+			'<form class="paste" id="paste-form" autocomplete="off">' +
+			'<input id="paste-input" type="text" inputmode="url" spellcheck="false" placeholder="Paste a KWAMSTER link" aria-label="KWAMSTER link">' +
+			'<button class="btn" type="submit">Open link</button>' +
+			'</form>' +
+			'<div class="paste-err" id="paste-err" role="alert"></div>' +
+			(hasExample ? '<button class="btn primary" type="button" id="load-example">Load example fight</button>' : '') +
+			'</section>';
+		app.setAttribute('aria-busy', 'false');
+		var form = document.getElementById('paste-form');
+		form.addEventListener('submit', function (ev) {
+			ev.preventDefault();
+			var raw = document.getElementById('paste-input').value.trim();
+			var hash = raw.indexOf('#');
+			var frag = hash >= 0 ? raw.slice(hash + 1) : raw;
+			frag = frag.replace(/\s+/g, '');
+			if (!frag || !/^[A-Za-z0-9_-]+=*$/.test(frag)) {
+				document.getElementById('paste-err').textContent = 'That does not look like a KWAMSTER link. It should contain a # followed by the fight data.';
+				return;
+			}
+			location.hash = frag;
+		});
+		var ex = document.getElementById('load-example');
+		if (ex) ex.addEventListener('click', function () { location.hash = exampleFragment(); });
+	}
+
+	function exampleFragment() {
+		var el = document.getElementById('kw-example');
+		var s = el ? el.textContent.replace(/\s+/g, '') : '';
+		return /^[A-Za-z0-9_-]{8,}$/.test(s) ? s : '';
+	}
+
+	function renderMessage(cls, title, bodyHtml, detail, showHome) {
+		setTitle(title + ' · KWAMSTER');
+		app.innerHTML =
+			'<section class="panel msg rise ' + cls + '" role="alert">' +
+			'<h1>' + esc(title) + '</h1>' + bodyHtml +
+			(detail ? '<details><summary>Technical details</summary><p><code>' + esc(detail) + '</code></p></details>' : '') +
+			(showHome ? '<div class="actions"><a class="btn" href="#">Go to the start page</a></div>' : '') +
+			'</section>';
+		app.setAttribute('aria-busy', 'false');
+	}
+
+	function renderUnsupported() {
+		renderMessage('', 'Your browser cannot open KWAMSTER links',
+			'<p>The fight is packed inside the link and this page unpacks it with the browser’s built-in <code>DecompressionStream(\'deflate-raw\')</code>. Your browser does not have it yet.</p>' +
+			'<p>Open the link in <b>Chrome or Edge 103+</b>, <b>Firefox 113+</b> or <b>Safari 16.4+</b>. The link itself is fine; nothing is wrong with it.</p>', null, false);
+	}
+
+	function renderError(err) {
+		if (err && err.code === 'VERSION') {
+			renderMessage('', 'This link is newer than this page', '<p>' + esc(err.message) + '</p>', 'Payload version ' + err.detail, true);
+			return;
+		}
+		renderMessage('bad', 'This link could not be read',
+			'<p>The fight data in the link looks damaged or incomplete. Chat apps sometimes cut long links or add characters to them.</p>' +
+			'<p>Ask for the link again, ideally copied with <b>[Copy link]</b> in game and pasted in full.</p>',
+			err && err.message ? err.message + (err.detail ? ' (' + err.detail + ')' : '') : String(err), true);
+	}
+
+	// ── Fight page ──────────────────────────────────────────────────────────
+	function renderFight(d) {
+		var m = buildModel(d);
+		var res = RESULTS[d.result] || 'DRAW';
+		setTitle(res + ' vs ' + m.names[0] + ' · KWAMSTER');
+		var shown = d.events.length;
+		var notes = '';
+		if (m.downsampled || shown < d.totalEvents) {
+			notes += '<p class="note">Replay shows <b>' + shown + '</b> of <b>' + d.totalEvents + '</b> events; the numbers above use all ' + d.totalEvents + '.</p>';
+		}
+		if (d.truncated) {
+			notes += '<p class="note">This link also contains event types from a newer KWAMSTER. The timeline and replay show the first ' + shown + ' events.</p>';
+		}
+		app.innerHTML =
+			heroHtml(m, res) +
+			'<h2 class="sr-only">Stats</h2>' +
+			statsHtml(m) +
+			notes +
+			timelineHtml(m) +
+			replayHtml(m) +
+			'<div class="duo">' + aimHtml(m) + histHtml(m) + '</div>' +
+			'<div class="duo even">' + qualityHtml(m) + jumpsHtml(m) + '</div>';
+		app.setAttribute('aria-busy', 'false');
+
+		var timeline = mountTimeline(app.querySelector('.tl-panel'), m);
+		var replay = mountReplay(app.querySelector('.rp-panel'), m);
+		timeline.onSeek = function (t) {
+			replay.seek(t);
+			var stage = app.querySelector('.rp-stage');
+			var r = stage.getBoundingClientRect();
+			if (r.bottom < 0 || r.top > window.innerHeight) stage.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'center' });
+		};
+		replay.onTime = function (t, playing) { timeline.setPlayhead(t, playing); };
+		mountResponsiveSvg(app.querySelector('.hist-host'), function (w) { return histSvg(m, w); });
+		mountResponsiveSvg(app.querySelector('.jump-host'), function (w) { return jumpSvg(m, w); });
+		mountEventTable(app.querySelector('details.table-view'), m);
+		var onTheme = function () { timeline.render(); replay.refreshTheme(); };
+		window.addEventListener('kw-theme', onTheme);
+		onCleanup(function () { window.removeEventListener('kw-theme', onTheme); });
+	}
+
+	function heroHtml(m, res) {
+		var d = m.d;
+		var who = m.names.map(function (n, i) {
+			return '<span class="opp"><i style="--c:' + oppVar(i) + '"></i><span style="color:' + oppTextVar(i) + '">' + esc(n) + '</span></span>';
+		});
+		var vs = who.length === 1 ? who[0]
+			: who.slice(0, -1).join('<span class="sep">, </span>') + '<span class="sep"> &amp; </span>' + who[who.length - 1];
+		var chips = [];
+		var start = new Date(d.startEpochSec * 1000);
+		if (d.startEpochSec > 0 && !isNaN(start.getTime())) {
+			chips.push('<span class="chip">' + esc(start.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })) + '</span>');
+		}
+		chips.push('<span class="chip"><b>' + duration(d.durationMs) + '</b> long</span>');
+		if (REASONS[d.endReason]) chips.push('<span class="chip">' + esc(REASONS[d.endReason]) + '</span>');
+		if (d.server) chips.push('<span class="chip">' + esc(d.server) + '</span>');
+		if (d.pingMs > 0) chips.push('<span class="chip"><b>' + d.pingMs + '</b> ms ping</span>');
+		if (m.names.length > 1) chips.push('<span class="chip">1v' + m.names.length + '</span>');
+		return '<header class="panel hero rise">' +
+			'<div class="avatar" aria-hidden="true">' + esc(initials(d.player)) + '</div>' +
+			'<div class="hero-main">' +
+			'<div class="title-row"><span class="badge ' + res.toLowerCase() + '">' + res + '</span>' +
+			'<h1 class="matchup">' + esc(d.player || 'You') + '<span class="vs"> vs </span>' + vs + '</h1></div>' +
+			'<div class="chips">' + chips.join('') + '</div>' +
+			'</div></header>';
+	}
+
+	function stat(label, value, sub, extra, tip) {
+		return '<div class="stat"' + (tip ? ' title="' + esc(tip) + '"' : '') + '><div class="k">' + label + '</div>' +
+			'<div class="v">' + value + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : '') + (extra || '') + '</div>';
+	}
+
+	function statsHtml(m) {
+		var s = m.sum, d = m.d, DASH = '—';
+		var landed = s[S.LANDED], swings = s[S.SWINGS];
+		var three = s[S.QUALITY] + s[S.QUALITY + 1] + s[S.QUALITY + 2];
+		var cards = [];
+		cards.push(stat('Accuracy', pct(landed, swings), swings ? landed + ' of ' + plural(swings, 'swing') : 'No swings',
+			null, 'Landed swings out of every swing at a player'));
+		// Landed reach on the value line; missed-swing reach (S9/S10, every miss has one) and over-reach misses below.
+		var missed = Math.max(0, swings - landed);
+		var reachSub = landed ? 'max ' + cmText(s[S.REACH_MAX]) : 'No hits landed';
+		if (missed > 0) {
+			reachSub += '<br>Misses avg ' + cmText(s[S.MISS_AVG]) + ' · max ' + cmText(s[S.MISS_MAX]) +
+				(s[S.OVER] ? ' · ' + s[S.OVER] + ' over reach' : '');
+		}
+		cards.push(stat('Reach', landed ? cmText(s[S.REACH_AVG]) + '<small>blocks</small>' : DASH, reachSub,
+			null, 'Average and maximum eye-to-hitbox distance of your landed hits, then of your missed swings (over reach: beyond your attack range)'));
+		cards.push(stat('Crits', landed ? String(s[S.CRITS]) : DASH, landed ? pct(s[S.CRITS], landed) + ' of landed hits' : '',
+			null, 'Charged hits while falling, out of all landed hits'));
+		cards.push(stat('Sprint hits', landed ? String(s[S.SPRINT]) : DASH, landed ? pct(s[S.SPRINT], landed) + ' of landed hits' : '',
+			null, 'Charged hits while sprinting (the extra-knockback hit)'));
+		cards.push(stat('3-block hits', landed ? String(three) : DASH,
+			landed ? pct(three, landed) + ' · ≥ ' + cmText(d.threeBlockCm) + ' blocks' : '',
+			null, 'Charged hits landed from at least the 3-block threshold'));
+		var att = s[S.J_ATT];
+		cards.push(stat('Jump resets', att ? s[S.J_OK] + '<small>/ ' + att + '</small>' : DASH,
+			plural(s[S.J_OPP], 'chance') + ' · ' + s[S.J_EARLY] + ' early',
+			null, 'Successful resets out of attempts; chances are melee hits taken on the ground'));
+		cards.push(stat('Best combo', s[S.BEST_COMBO] + '<small>/ ' + s[S.BEST_COMBO_TAKEN] + '</small>',
+			'dealt / taken · ' + plural(s[S.COMBOS], 'combo'), null, 'Longest run of your hits before the opponent hit back, and theirs'));
+		cards.push(stat('Best streak', String(s[S.BEST_STREAK]), 'landed hits without a miss', null, 'Most landed hits in a row with no missed swing'));
+		cards.push(stat('Hits taken', String(s[S.TAKEN]), s[S.PROJ] ? '+ ' + plural(s[S.PROJ], 'projectile hit') : 'melee', null, 'Melee hits you took'));
+		cards.push(stat('Avg interval', s[S.INT_N] ? s[S.INT_AVG] + '<small>± ' + s[S.INT_SD] + ' ms</small>' : DASH,
+			s[S.INT_N] ? plural(s[S.INT_N], 'interval') : 'No hit pairs', null, 'Time between consecutive landed clicks on the same opponent'));
+		cards.push(stat('Trades', s[S.TRADES] ? s[S.T_WON] + 'W <small>' + s[S.T_LOST] + 'L</small>' : DASH,
+			s[S.TRADES] ? plural(s[S.TRADES], 'trade') + ' · momentum ' + signed(s[S.MOMENTUM]) + '%' : 'No trades', null,
+			'Simultaneous hit exchanges won and lost by damage'));
+		if (m.damage) {
+			cards.push(stat('Damage', (s[S.DMG_DEALT] / 10).toFixed(1) + '<small>/ ' + (s[S.DMG_TAKEN] / 10).toFixed(1) + '</small>',
+				'health points dealt / taken', null, 'Health drops linked to your hits and to hits you took'));
+		}
+		cards.push(stat('Confirmed', pct(s[S.CONFIRMED], landed), landed ? s[S.CONFIRMED] + ' of ' + landed + ' confirmed by the server' : '',
+			null, 'Landed hits the server answered with a damage event'));
+		cards.push(stat('NO-REG hits', String(s[S.NOREG]), 'clicks into hurt immunity', null, 'Landed hits while the target was still immune to damage'));
+		var you = s[S.ADV_YOU], them = s[S.ADV_THEM], even = Math.max(0, 100 - you - them);
+		cards.push(stat('Advantage', you + '%<small>/ ' + them + '%</small>', 'time ahead: you / them',
+			'<div class="split" aria-hidden="true"><i style="width:' + you + '%;background:var(--accent)"></i><i style="width:' + even + '%;background:var(--line-hi)"></i><i style="width:' + them + '%;background:var(--loss)"></i></div>',
+			'Share of the fight where the advantage model favoured you or them'));
+		return '<div class="cards rise">' + cards.join('') + '</div>';
+	}
+
+	// ── Timeline ────────────────────────────────────────────────────────────
+	/**
+	 * SVG paint as a style attribute. Colours may be var(--token), and var() is reliable in CSS
+	 * (style attributes) but not in SVG presentation attributes across engines.
+	 */
+	function fillOf(color) { return ' style="fill:' + color + '"'; }
+	function strokeOf(color) { return ' fill="none" style="stroke:' + color + '"'; }
+	var GLYPH_OK = '<path d="M-3 0l2 2.2 4-4.2" fill="none" stroke="#0B0D12" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>';
+	var GLYPH_BAD = '<path d="M-2.4-2.4l4.8 4.8M2.4-2.4l-4.8 4.8" stroke="#0B0D12" stroke-width="1.8" stroke-linecap="round"/>';
+
+	function markSvg(kind, color, extra) {
+		var s = '<svg viewBox="-7 -7 14 14" aria-hidden="true">';
+		if (kind === 'dot') s += '<circle r="4.5"' + fillOf(color) + '/>';
+		else if (kind === 'ring') s += '<circle r="3.6"' + fillOf(color) + '/><circle r="6"' + strokeOf(color) + ' stroke-width="1.4"/>';
+		else if (kind === 'hollow') s += '<circle r="4"' + strokeOf(color) + ' stroke-width="1.6"/>';
+		else if (kind === 'tick') s += '<rect x="-1" y="-6" width="2" height="12" rx="1"' + fillOf(color) + '/>';
+		else if (kind === 'ok') s += '<circle r="6"' + fillOf(color) + '/>' + GLYPH_OK;
+		else if (kind === 'bad') s += '<circle r="6"' + fillOf(color) + '/>' + GLYPH_BAD;
+		return s + (extra || '') + '</svg>';
+	}
+
+	function timelineHtml(m) {
+		return '<section class="sec rise" aria-labelledby="tl-h">' +
+			'<div class="sec-head"><h2 id="tl-h">Timeline</h2><p class="hint">Scroll or pinch to zoom · drag to pan · double-click to reset · click to jump the replay</p></div>' +
+			'<div class="panel tl-panel">' +
+			'<div class="legend">' +
+			'<span>' + markSvg('dot', TIERS[3].color) + 'Hit (tier colour)</span>' +
+			'<span>' + markSvg('ring', TIERS[0].color) + '3-block hit</span>' +
+			'<span>' + markSvg('hollow', NOREG_COLOR) + 'NO-REG</span>' +
+			'<span>' + markSvg('tick', 'var(--miss)') + 'Miss</span>' +
+			'<span>' + markSvg('tick', 'var(--miss-over)') + 'Over-reach miss</span>' +
+			'<span>' + markSvg('dot', 'var(--loss)') + 'Hit taken</span>' +
+			'<span>' + markSvg('ok', 'var(--win)') + markSvg('bad', 'var(--loss)') + 'Jump reset</span>' +
+			(m.downsampled ? '<span>Advantage line is approximate: recomputed from the events kept in this link</span>' : '') +
+			'</div>' +
+			'<div class="tl-host" tabindex="0" role="group" aria-label="Fight timeline. Arrow keys step through events, plus and minus zoom, 0 resets."></div>' +
+			'<div class="tip" hidden></div>' +
+			'<details class="table-view"><summary>Show every event as a table</summary><div class="tbl-host"></div></details>' +
+			'</div></section>';
+	}
+
+	function tickStep(span, px) {
+		var target = span / Math.max(1, px / 74);
+		var steps = [100, 200, 500, 1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 1800000];
+		for (var i = 0; i < steps.length; i++) if (steps[i] >= target) return steps[i];
+		return steps[steps.length - 1];
+	}
+	function tickLabel(ms, step, long) {
+		var sub = step < 1000;
+		if (long) {
+			var s = ms / 1000;
+			return Math.floor(s / 60) + ':' + pad2(Math.floor(s % 60)) + (sub ? '.' + Math.round((s % 1) * 10) % 10 : '');
+		}
+		return (sub ? (ms / 1000).toFixed(1) : String(Math.round(ms / 1000))) + 's';
+	}
+
+	function mountTimeline(panel, m) {
+		var host = panel.querySelector('.tl-host');
+		var tip = panel.querySelector('.tip');
+		var T = m.tEnd;
+		var MIN_SPAN = Math.min(T, 1500);
+		var H = 220, ADV_TOP = 10, ADV_H = 52, ZERO = ADV_TOP + ADV_H / 2;
+		var LANES = [
+			{ key: K.HIT, y: 90, label: 'You hit' },
+			{ key: K.MISS, y: 116, label: 'Miss' },
+			{ key: K.TAKEN, y: 142, label: 'Taken' },
+			{ key: K.JUMP, y: 168, label: 'Jump reset' }
+		];
+		var AXIS_Y = 186;
+		var v0 = 0, v1 = T, W = 0, L = 86, R = 14, PW = 1;
+		var playT = 0, selected = -1, pending = 0;
+		var api = { onSeek: null };
+
+		function geom() {
+			W = Math.max(300, innerWidthOf(host));
+			L = W < 520 ? 66 : 88;
+			PW = Math.max(1, W - L - R);
+		}
+		function x(t) { return L + (t - v0) / (v1 - v0) * PW; }
+		function tAt(px) { return v0 + (px - L) / PW * (v1 - v0); }
+		function laneY(kind) {
+			for (var i = 0; i < LANES.length; i++) if (LANES[i].key === kind) return LANES[i].y;
+			return LANES[0].y;
+		}
+
+		function render() {
+			pending = 0;
+			geom();
+			var span = v1 - v0;
+			var s = '<svg xmlns="' + SVGNS + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+			s += '<defs><clipPath id="tl-clip"><rect x="' + L + '" y="0" width="' + PW + '" height="' + H + '"/></clipPath>' +
+				'<clipPath id="tl-pos"><rect x="' + L + '" y="0" width="' + PW + '" height="' + ZERO + '"/></clipPath>' +
+				'<clipPath id="tl-neg"><rect x="' + L + '" y="' + ZERO + '" width="' + PW + '" height="' + (H - ZERO) + '"/></clipPath></defs>';
+
+			// Grid and axis. The step never yields more than one tick per 20 px, whatever the span.
+			var step = Math.max(tickStep(span, PW), span / Math.max(1, PW / 20)), long = T >= 60000;
+			var first = Math.ceil(v0 / step) * step;
+			for (var tk = first; tk <= v1 + 1e-6; tk += step) {
+				var gx = Math.round(x(tk)) + 0.5;
+				s += '<line class="grid" x1="' + gx + '" y1="' + ADV_TOP + '" x2="' + gx + '" y2="' + AXIS_Y + '"/>';
+				s += '<text class="tick-label" x="' + gx + '" y="' + (AXIS_Y + 16) + '" text-anchor="middle">' + tickLabel(tk, step, long) + '</text>';
+			}
+			s += '<line class="axis" x1="' + L + '" y1="' + (AXIS_Y + 0.5) + '" x2="' + (L + PW) + '" y2="' + (AXIS_Y + 0.5) + '"/>';
+			LANES.forEach(function (ln) {
+				s += '<line class="lane-line" x1="' + L + '" y1="' + (ln.y + 13.5) + '" x2="' + (L + PW) + '" y2="' + (ln.y + 13.5) + '"/>';
+				s += '<text class="lane-label" x="' + (L - 10) + '" y="' + (ln.y + 4) + '" text-anchor="end">' + ln.label + '</text>';
+			});
+
+			// Advantage area (approximate when downsampled), split by sign.
+			s += '<text class="lane-label" x="' + (L - 10) + '" y="' + (ZERO + 4) + '" text-anchor="end">Advantage</text>';
+			s += '<text class="lane-sub" x="' + (L - 10) + '" y="' + (ADV_TOP + 8) + '" text-anchor="end">YOU</text>';
+			s += '<text class="lane-sub" x="' + (L - 10) + '" y="' + (ADV_TOP + ADV_H) + '" text-anchor="end">THEM</text>';
+			var n = Math.min(1400, Math.max(2, Math.round(PW / 1.5)));
+			var pts = '', a0 = Math.max(0, v0), a1 = Math.min(T, v1);
+			if (a1 > a0) {
+				for (var k = 0; k <= n; k++) {
+					var tt = a0 + (a1 - a0) * k / n;
+					pts += (k ? 'L' : 'M') + x(tt).toFixed(1) + ',' + (ZERO - m.advantage(tt) * ADV_H / 2).toFixed(1);
+				}
+				var area = pts + 'L' + x(a1).toFixed(1) + ',' + ZERO + 'L' + x(a0).toFixed(1) + ',' + ZERO + 'Z';
+				s += '<path class="adv-pos" clip-path="url(#tl-pos)" d="' + area + '"/>';
+				s += '<path class="adv-neg" clip-path="url(#tl-neg)" d="' + area + '"/>';
+				s += '<path class="adv-line-pos" clip-path="url(#tl-pos)" d="' + pts + '"/>';
+				s += '<path class="adv-line-neg" clip-path="url(#tl-neg)" d="' + pts + '"/>';
+			}
+			s += '<line class="zero" x1="' + L + '" y1="' + (ZERO + 0.5) + '" x2="' + (L + PW) + '" y2="' + (ZERO + 0.5) + '"/>';
+
+			// Events.
+			s += '<g clip-path="url(#tl-clip)">';
+			var lo = lowerBound(m.times, v0 - span * 0.02), hi = upperBound(m.times, v1 + span * 0.02);
+			for (var i = lo; i < hi; i++) s += eventMark(m.evs[i]);
+			if (selected >= 0) {
+				var se = m.evs[selected];
+				s += '<circle class="sel" cx="' + x(se.t).toFixed(1) + '" cy="' + (se.kind === K.DEATH ? laneY(K.HIT) : laneY(se.kind)) + '" r="9"/>';
+			}
+			s += '<line class="ph" x1="0" y1="' + ADV_TOP + '" x2="0" y2="' + AXIS_Y + '"/><path class="ph-head" d="M-5,' + (ADV_TOP - 6) + 'h10l-5,6z"/>';
+			s += '</g></svg>';
+			host.innerHTML = s;
+			placePlayhead();
+		}
+
+		function eventMark(e) {
+			var cx = x(e.t).toFixed(1);
+			var y, t = '';
+			switch (e.kind) {
+				case K.HIT: {
+					y = laneY(K.HIT);
+					var c = TIERS[e.q].color;
+					if (e.noReg) return '<circle cx="' + cx + '" cy="' + y + '" r="4"' + strokeOf(NOREG_COLOR) + ' stroke-width="1.6"/>';
+					if (e.q <= 2) t += '<circle cx="' + cx + '" cy="' + y + '" r="7.2"' + strokeOf(c) + ' stroke-width="1.4"/>';
+					return t + '<circle class="dot" cx="' + cx + '" cy="' + y + '" r="4.5"' + fillOf(c) + '/><circle class="dot-edge" cx="' + cx + '" cy="' + y + '" r="4.5"/>';
+				}
+				case K.MISS:
+					y = laneY(K.MISS);
+					return '<rect x="' + (+cx - 1).toFixed(1) + '" y="' + (y - 6) + '" width="2" height="12" rx="1"' + fillOf(e.over ? 'var(--miss-over)' : 'var(--miss)') + '/>';
+				case K.TAKEN:
+					y = laneY(K.TAKEN);
+					return '<circle class="dot" cx="' + cx + '" cy="' + y + '" r="' + (e.ground ? 4.5 : 3.8) + '"' + fillOf('var(--loss)') + '/>';
+				case K.JUMP:
+					y = laneY(K.JUMP);
+					return '<g transform="translate(' + cx + ',' + y + ')"><circle r="6" class="dot"' + fillOf(e.ok ? 'var(--win)' : 'var(--loss)') + '/>' +
+						(e.ok ? GLYPH_OK : GLYPH_BAD) + '</g>';
+				default: {
+					var col = e.youDied ? 'var(--loss)' : 'var(--win)';
+					var lbl = e.youDied ? '✕ You' : '✕ ' + oppName(m, e.opp);
+					return '<line class="death" x1="' + cx + '" y1="' + (LANES[0].y - 12) + '" x2="' + cx + '" y2="' + AXIS_Y + '" style="stroke:' + col + '"/>' +
+						'<text class="death-label" x="' + (+cx - 4).toFixed(1) + '" y="' + (LANES[0].y - 15) + '" text-anchor="end"' + fillOf(e.youDied ? 'var(--loss-ink)' : 'var(--win-ink)') + '>' + esc(lbl) + '</text>';
+				}
+			}
+		}
+
+		function placePlayhead() {
+			var line = host.querySelector('.ph'), head = host.querySelector('.ph-head');
+			if (!line) return;
+			var px = x(playT);
+			var visible = playT >= v0 && playT <= v1;
+			line.setAttribute('transform', 'translate(' + px.toFixed(1) + ',0)');
+			head.setAttribute('transform', 'translate(' + px.toFixed(1) + ',0)');
+			line.style.display = head.style.display = visible ? '' : 'none';
+		}
+		function schedule() {
+			if (!pending) pending = requestAnimationFrame(render);
+		}
+		function clampView() {
+			var span = clamp(v1 - v0, MIN_SPAN, T);
+			if (v0 < 0) v0 = 0;
+			v1 = v0 + span;
+			if (v1 > T) { v1 = T; v0 = T - span; }
+		}
+		function zoomAt(tc, f) {
+			var span = clamp((v1 - v0) * f, MIN_SPAN, T);
+			var a = (tc - v0) / (v1 - v0);
+			v0 = tc - a * span;
+			v1 = v0 + span;
+			clampView();
+			schedule();
+		}
+		function pan(dt) {
+			v0 += dt; v1 += dt;
+			clampView();
+			schedule();
+		}
+		function reset() {
+			hideTip();
+			if (REDUCED) { v0 = 0; v1 = T; schedule(); return; }
+			var f0 = v0, f1 = v1, start = performance.now();
+			(function stepAnim(now) {
+				var k = Math.min(1, (now - start) / 260), e = 1 - Math.pow(1 - k, 3);
+				v0 = f0 + (0 - f0) * e;
+				v1 = f1 + (T - f1) * e;
+				render();
+				if (k < 1) requestAnimationFrame(stepAnim);
+			})(start);
+		}
+
+		// Hover, tooltip and picking.
+		function localPoint(ev) {
+			var r = host.getBoundingClientRect();
+			return { x: ev.clientX - r.left + host.scrollLeft, y: ev.clientY - r.top };
+		}
+		function pick(px, py) {
+			var lane = null, best = -1, bd = 15;
+			for (var i = 0; i < LANES.length; i++) if (Math.abs(py - LANES[i].y) <= 13) lane = LANES[i].key;
+			if (lane === null) return -1;
+			var t0 = tAt(px - bd), t1 = tAt(px + bd);
+			for (var j = lowerBound(m.times, t0); j < m.evs.length && m.times[j] <= t1; j++) {
+				var e = m.evs[j];
+				var ek = e.kind === K.DEATH ? K.HIT : e.kind;
+				if (ek !== lane) continue;
+				var dx = Math.abs(x(e.t) - px);
+				if (dx < bd) { bd = dx; best = j; }
+			}
+			return best;
+		}
+		function showTipFor(e, px, py) {
+			var desc = describe(m, e);
+			tip.textContent = '';
+			var title = document.createElement('strong');
+			var key = document.createElement('span');
+			key.className = 'tk';
+			key.style.setProperty('--c', desc.color);
+			title.appendChild(key);
+			title.appendChild(document.createTextNode(desc.title));
+			tip.appendChild(title);
+			desc.rows.forEach(function (row) {
+				var div = document.createElement('div');
+				div.textContent = row;
+				tip.appendChild(div);
+			});
+			var when = document.createElement('div');
+			when.className = 'when';
+			when.textContent = 'at ' + clockTime(e.t);
+			tip.appendChild(when);
+			placeTip(px, py);
+		}
+		function showAdvTip(t, px, py) {
+			var a = m.advantage(t);
+			tip.textContent = '';
+			var title = document.createElement('strong');
+			title.textContent = 'Advantage ' + (a >= 0.15 ? 'YOU' : a <= -0.15 ? 'THEM' : 'EVEN') + ' (' + (a > 0 ? '+' : a < 0 ? '−' : '') + Math.abs(a).toFixed(2) + ')';
+			tip.appendChild(title);
+			var st = m.stateAt(t);
+			var row = document.createElement('div');
+			row.textContent = 'Combo ' + st.combo + ' · taken ' + st.comboTaken + (m.downsampled ? ' · approximate' : '');
+			tip.appendChild(row);
+			var when = document.createElement('div');
+			when.className = 'when';
+			when.textContent = 'at ' + clockTime(t);
+			tip.appendChild(when);
+			placeTip(px, py);
+		}
+		function placeTip(px, py) {
+			tip.hidden = false;
+			var pw = panel.clientWidth, tw = tip.offsetWidth, th = tip.offsetHeight;
+			var hostLeft = host.offsetLeft - host.scrollLeft, hostTop = host.offsetTop;
+			var left = clamp(hostLeft + px + 14, 6, pw - tw - 6);
+			if (hostLeft + px + 14 + tw > pw - 6) left = clamp(hostLeft + px - tw - 14, 6, pw - tw - 6);
+			var top = hostTop + py - th - 12;
+			if (top < 4) top = hostTop + py + 16;
+			tip.style.left = left + 'px';
+			tip.style.top = top + 'px';
+		}
+		function hideTip() { tip.hidden = true; }
+		function hover(p) {
+			var idx = pick(p.x, p.y);
+			if (idx >= 0) { showTipFor(m.evs[idx], p.x, p.y); host.style.cursor = 'pointer'; return; }
+			host.style.cursor = '';
+			if (p.y >= ADV_TOP - 4 && p.y <= ADV_TOP + ADV_H + 4 && p.x >= L && p.x <= L + PW) showAdvTip(clamp(tAt(p.x), 0, T), p.x, p.y);
+			else hideTip();
+		}
+		function select(idx, fromKeys) {
+			selected = idx;
+			var e = m.evs[idx];
+			if (fromKeys && (e.t < v0 || e.t > v1)) {
+				var span = v1 - v0;
+				v0 = e.t - span / 2; v1 = e.t + span / 2;
+				clampView();
+			}
+			render();
+			if (fromKeys) showTipFor(e, x(e.t), e.kind === K.DEATH ? laneY(K.HIT) : laneY(e.kind));
+			if (api.onSeek) api.onSeek(e.t);
+		}
+
+		// Pointer input: drag to pan, pinch to zoom, tap/click to pick, double-tap to reset.
+		var pointers = new Map();
+		var drag = null, pinch = null, lastTap = 0, lastTapX = 0;
+		function onDown(ev) {
+			if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+			pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+			try { host.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+			if (pointers.size === 1) {
+				drag = { last: ev.clientX, moved: 0 };
+			} else if (pointers.size === 2) {
+				var ps = Array.from(pointers.values());
+				var r = host.getBoundingClientRect();
+				pinch = { dist: Math.max(10, Math.abs(ps[0].x - ps[1].x)), mid: tAt((ps[0].x + ps[1].x) / 2 - r.left + host.scrollLeft) };
+				drag = null;
+			}
+		}
+		function onMove(ev) {
+			if (pointers.has(ev.pointerId)) {
+				pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+				if (pinch && pointers.size >= 2) {
+					var ps = Array.from(pointers.values());
+					var dist = Math.max(10, Math.abs(ps[0].x - ps[1].x));
+					zoomAt(pinch.mid, pinch.dist / dist);
+					pinch.dist = dist;
+					hideTip();
+					return;
+				}
+				if (drag) {
+					var dx = ev.clientX - drag.last;
+					drag.moved += Math.abs(dx);
+					drag.last = ev.clientX;
+					if (drag.moved > 4) {
+						host.classList.add('dragging');
+						hideTip();
+						pan(-dx / PW * (v1 - v0));
+					}
+					return;
+				}
+			}
+			if (ev.pointerType === 'mouse') hover(localPoint(ev));
+		}
+		function onUp(ev) {
+			var wasDrag = drag;
+			pointers.delete(ev.pointerId);
+			if (pointers.size < 2) pinch = null;
+			host.classList.remove('dragging');
+			if (ev.type === 'pointerup' && wasDrag && wasDrag.moved <= 4 && pointers.size === 0) {
+				var p = localPoint(ev);
+				var now = performance.now();
+				if (ev.pointerType !== 'mouse' && now - lastTap < 320 && Math.abs(p.x - lastTapX) < 24) {
+					lastTap = 0;
+					reset();
+				} else {
+					lastTap = now; lastTapX = p.x;
+					var idx = pick(p.x, p.y);
+					if (idx >= 0) {
+						select(idx, false);
+						if (ev.pointerType !== 'mouse') showTipFor(m.evs[idx], p.x, p.y);
+					} else if (p.x >= L && p.x <= L + PW && api.onSeek) {
+						api.onSeek(clamp(tAt(p.x), 0, T));
+					}
+				}
+			}
+			if (pointers.size === 0) drag = null;
+		}
+		function onWheel(ev) {
+			ev.preventDefault();
+			hideTip();
+			var p = localPoint(ev);
+			var unit = ev.deltaMode === 1 ? 32 : ev.deltaMode === 2 ? 400 : 1;
+			if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) {
+				pan(ev.deltaX * unit / PW * (v1 - v0));
+			} else {
+				zoomAt(clamp(tAt(p.x), 0, T), Math.exp(ev.deltaY * unit * 0.0016));
+			}
+		}
+		function onKey(ev) {
+			var span = v1 - v0;
+			if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
+				if (!m.evs.length) return;
+				ev.preventDefault();
+				var dir = ev.key === 'ArrowRight' ? 1 : -1;
+				var idx = selected >= 0 ? selected + dir : (dir > 0 ? upperBound(m.times, playT - 1) : upperBound(m.times, playT) - 1);
+				select(clamp(idx, 0, m.evs.length - 1), true);
+			} else if (ev.key === '+' || ev.key === '=') {
+				ev.preventDefault(); zoomAt((v0 + v1) / 2, 0.7);
+			} else if (ev.key === '-' || ev.key === '_') {
+				ev.preventDefault(); zoomAt((v0 + v1) / 2, 1 / 0.7);
+			} else if (ev.key === '0' || ev.key === 'Home') {
+				ev.preventDefault(); reset();
+			} else if (ev.key === 'PageDown') {
+				ev.preventDefault(); pan(span * 0.8);
+			} else if (ev.key === 'PageUp') {
+				ev.preventDefault(); pan(-span * 0.8);
+			} else if (ev.key === 'Escape') {
+				selected = -1; hideTip(); render();
+			}
+		}
+		host.addEventListener('pointerdown', onDown);
+		host.addEventListener('pointermove', onMove);
+		host.addEventListener('pointerup', onUp);
+		host.addEventListener('pointercancel', onUp);
+		host.addEventListener('pointerleave', function (ev) { if (ev.pointerType === 'mouse' && !drag) hideTip(); });
+		host.addEventListener('wheel', onWheel, { passive: false });
+		host.addEventListener('dblclick', function (ev) { ev.preventDefault(); reset(); });
+		host.addEventListener('keydown', onKey);
+		host.addEventListener('blur', hideTip);
+		observeResize(host, render);
+		onCleanup(function () { if (pending) cancelAnimationFrame(pending); });
+
+		api.render = render;
+		api.setPlayhead = function (t, playing) {
+			playT = t;
+			// While playing zoomed in, page the view forward so the playhead stays visible.
+			if (playing && (t > v1 || t < v0) && v1 - v0 < T) {
+				var span = v1 - v0;
+				v0 = t - span * 0.1; v1 = v0 + span;
+				clampView();
+				render();
+				return;
+			}
+			placePlayhead();
+		};
+		render();
+		return api;
+	}
+
+	function mountEventTable(details, m) {
+		var built = false;
+		details.addEventListener('toggle', function () {
+			if (!details.open || built) return;
+			built = true;
+			var head = '<tr><th>Time</th><th>Event</th><th>Detail</th>' + (m.multi ? '<th>Opponent</th>' : '') + '</tr>';
+			var rows = m.evs.map(function (e) {
+				var desc = describe(m, e);
+				return '<tr><td>' + clockTime(e.t) + '</td><td><span class="sw" style="--c:' + esc(desc.color) + '"></span>' + esc(desc.title) + '</td>' +
+					'<td>' + esc(desc.rows.filter(function (r) { return !/^(On|At|From) /.test(r); }).join(' · ')) + '</td>' +
+					(m.multi ? '<td>' + (e.kind === K.JUMP || (e.kind === K.DEATH && e.youDied) ? '' : esc(oppName(m, e.opp))) + '</td>' : '') + '</tr>';
+			});
+			details.querySelector('.tbl-host').innerHTML = m.evs.length
+				? '<table class="ev"><thead>' + head + '</thead><tbody>' + rows.join('') + '</tbody></table>'
+				: '<p class="empty-msg">No events in this link.</p>';
+		});
+	}
+
+	// ── Replay ──────────────────────────────────────────────────────────────
+	var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+	var ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>';
+	var ICON_RESTART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg>';
+
+	/** The replay runs a little past the last moment so the final burst and the kill mark finish animating. */
+	var REPLAY_TAIL_MS = 1200;
+	/** Most event bursts drawn in one replay frame (a real fight has a handful in any 1.5 s). */
+	var MAX_BURSTS = 48;
+	/**
+	 * Replay camera fit (fitCamera): the window around the playhead it frames (ms), the event positions
+	 * sampled per track, the blocks of floor around the players, the fewest blocks across the shorter side
+	 * (the most zoom) and the least zoom (px per block).
+	 */
+	var FIT_WINDOW_MS = 2000, FIT_SAMPLES = 64, FIT_PAD_BLOCKS = 1.25, FIT_MIN_VIEW_BLOCKS = 5, FIT_MIN_SCALE = 6;
+	function replayEnd(m) { return m.evs.length ? m.tEnd + REPLAY_TAIL_MS : m.tEnd; }
+
+	function replayHtml(m) {
+		return '<section class="sec rise" aria-labelledby="rp-h">' +
+			'<div class="sec-head"><h2 id="rp-h">Replay</h2><p class="hint">' +
+			(m.positions ? 'Top-down view · you are the violet disc · space plays, arrows seek' : 'This link has no positions, so the replay shows distance over time') +
+			'</p></div>' +
+			'<div class="panel rp-panel">' +
+			'<div class="rp-stage"><canvas tabindex="0" role="img" aria-label="Fight replay. Space plays or pauses, arrow keys seek."></canvas></div>' +
+			'<div class="rp-controls">' +
+			'<button class="btn play" type="button" aria-label="Play">' + ICON_PLAY + '</button>' +
+			'<input class="scrub" type="range" min="0" max="' + replayEnd(m) + '" step="10" value="0" aria-label="Replay position">' +
+			'<span class="time" aria-live="off">' + clockTime(0) + ' / ' + clockTime(m.tEnd) + '</span>' +
+			'<div class="seg" role="group" aria-label="Playback speed">' +
+			[0.5, 1, 2, 4].map(function (sp) { return '<button type="button" data-speed="' + sp + '" aria-pressed="' + (sp === 1) + '">' + sp + '×</button>'; }).join('') +
+			'</div>' +
+			'<div class="live"><span class="chip">Combo <b class="lc">0</b></span><span class="chip">Streak <b class="ls">0</b></span></div>' +
+			'</div></div></section>';
+	}
+
+	function mountReplay(panel, m) {
+		var canvas = panel.querySelector('canvas');
+		var ctx = canvas.getContext('2d');
+		var stage = panel.querySelector('.rp-stage');
+		var playBtn = panel.querySelector('.play');
+		var scrub = panel.querySelector('.scrub');
+		var timeEl = panel.querySelector('.time');
+		var comboEl = panel.querySelector('.lc');
+		var streakEl = panel.querySelector('.ls');
+		var speedBtns = panel.querySelectorAll('[data-speed]');
+		var END = m.tEnd, T = replayEnd(m);
+		var t = 0, playing = false, speed = 1, raf = 0, lastFrame = 0, cam = null, snap = true;
+		var col = {};
+		var api = { onTime: null };
+
+		if (!m.evs.length) {
+			var empty = document.createElement('div');
+			empty.className = 'rp-empty';
+			empty.textContent = 'No events to replay in this link.';
+			stage.appendChild(empty);
+			playBtn.disabled = true;
+			scrub.disabled = true;
+		}
+
+		function refreshTheme() {
+			['--stage', '--grid1', '--grid5', '--text', '--muted', '--dim', '--accent', '--accent2', '--win', '--loss', '--miss', '--miss-over', '--o0', '--o1', '--o2', '--o3', '--line-hi']
+				.forEach(function (n) { col[n] = cssVar(n); });
+			draw();
+		}
+
+		function oppColor(i) { return col['--o' + (((i % 4) + 4) % 4)]; }
+		function ease(k) { return 1 - Math.pow(1 - clamp(k, 0, 1), 3); }
+		function roundRectPath(x, y, w, h, r) {
+			ctx.beginPath();
+			ctx.moveTo(x + r, y);
+			ctx.arcTo(x + w, y, x + w, y + h, r);
+			ctx.arcTo(x + w, y + h, x, y + h, r);
+			ctx.arcTo(x, y + h, x, y, r);
+			ctx.arcTo(x, y, x + w, y, r);
+			ctx.closePath();
+		}
+		/** A HUD-style pill: dark glass backdrop, coloured text (readable in both themes). */
+		function pill(x, y, text, color, alpha) {
+			if (alpha <= 0.02) return;
+			ctx.save();
+			ctx.globalAlpha = alpha;
+			ctx.font = '700 11px ' + FONT;
+			var w = Math.ceil(ctx.measureText(text).width) + 14, h = 19;
+			roundRectPath(Math.round(x - w / 2), Math.round(y - h / 2), w, h, 6);
+			ctx.fillStyle = 'rgba(14,17,22,0.86)';
+			ctx.fill();
+			ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+			ctx.lineWidth = 1;
+			ctx.stroke();
+			ctx.fillStyle = color;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillText(text, Math.round(x), Math.round(y) + 0.5);
+			ctx.restore();
+		}
+		function nameLabel(x, y, text) {
+			ctx.save();
+			ctx.font = '600 11px ' + FONT;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'bottom';
+			ctx.lineJoin = 'round';
+			ctx.lineWidth = 3;
+			ctx.strokeStyle = col['--stage'];
+			ctx.strokeText(text, x, y);
+			ctx.fillStyle = col['--text'];
+			ctx.fillText(text, x, y);
+			ctx.restore();
+		}
+		function disc(x, y, r, color) {
+			ctx.beginPath();
+			ctx.arc(x, y, r + 2, 0, Math.PI * 2);
+			ctx.fillStyle = col['--stage'];
+			ctx.fill();
+			ctx.beginPath();
+			ctx.arc(x, y, r, 0, Math.PI * 2);
+			ctx.fillStyle = color;
+			ctx.fill();
+		}
+		function cross(x, y, size, color, alpha) {
+			ctx.save();
+			ctx.globalAlpha = alpha;
+			ctx.strokeStyle = col['--stage'];
+			ctx.lineWidth = 7;
+			ctx.lineCap = 'round';
+			ctx.beginPath();
+			ctx.moveTo(x - size, y - size); ctx.lineTo(x + size, y + size);
+			ctx.moveTo(x + size, y - size); ctx.lineTo(x - size, y + size);
+			ctx.stroke();
+			ctx.strokeStyle = color;
+			ctx.lineWidth = 3.5;
+			ctx.stroke();
+			ctx.restore();
+		}
+
+		function resize() {
+			var dpr = Math.min(3, window.devicePixelRatio || 1);
+			var w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+			if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			snap = true;
+		}
+
+		function draw() {
+			var cw = canvas.clientWidth, ch = canvas.clientHeight;
+			if (!cw || !ch) return;
+			var dpr = Math.min(3, window.devicePixelRatio || 1);
+			if (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr)) resize();
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			ctx.fillStyle = col['--stage'];
+			ctx.fillRect(0, 0, cw, ch);
+			if (!m.evs.length) return;
+			if (m.positions && m.selfKeys.length) draw2d(cw, ch); else draw1d(cw, ch);
+		}
+
+		/**
+		 * Camera for the top-down view, fitted to the players. It frames the bounding box of the positions
+		 * within FIT_WINDOW_MS of the playhead: yours, and those of every opponent with an event in that
+		 * window or in focus (the event positions themselves, at most FIT_SAMPLES per track, plus everyone's
+		 * position now), padded by FIT_PAD_BLOCKS, inside pixel margins that leave room for the name labels
+		 * and hit pills above the discs and for the scale bar below. The zoom shows at least
+		 * FIT_MIN_VIEW_BLOCKS across the shorter side (two players in melee read as discs on a floor rather
+		 * than filling the stage) and never less than FIT_MIN_SCALE px per block; when even that cannot hold
+		 * everyone, you stay in view. Returns { x, z, s, ox, oy, availW, availH }: world (x, z) is drawn at
+		 * screen (ox, oy) with s CSS px per block, the same s the grid and the scale bar use; availW x availH
+		 * is the framed area in CSS px (draw2d keeps you inside it while the camera eases).
+		 */
+		function fitCamera(cw, ch, me, opps, focus) {
+			var x0 = me.x, x1 = me.x, z0 = me.z, z1 = me.z;
+			function add(p) {
+				if (p.x < x0) x0 = p.x;
+				if (p.x > x1) x1 = p.x;
+				if (p.z < z0) z0 = p.z;
+				if (p.z > z1) z1 = p.z;
+			}
+			function addWindow(keys) {
+				var i0 = lowerBound(keys.times, t - FIT_WINDOW_MS), i1 = upperBound(keys.times, t + FIT_WINDOW_MS);
+				var step = Math.max(1, Math.ceil((i1 - i0) / FIT_SAMPLES));
+				for (var i = i0; i < i1; i += step) add(keys[i]);
+				return i1 > i0;
+			}
+			addWindow(m.selfKeys);
+			opps.forEach(function (p, i) {
+				if (p && (addWindow(m.oppKeys[i]) || i === focus)) add(p);
+			});
+			var top = Math.round(clamp(ch * 0.12, 24, 44)), bottom = Math.round(clamp(ch * 0.08, 16, 28)), side = 16;
+			var availW = Math.max(40, cw - 2 * side), availH = Math.max(40, ch - top - bottom);
+			var bw = x1 - x0 + 2 * FIT_PAD_BLOCKS, bh = z1 - z0 + 2 * FIT_PAD_BLOCKS;
+			var maxS = Math.max(FIT_MIN_SCALE, Math.min(availW, availH) / FIT_MIN_VIEW_BLOCKS);
+			var s = clamp(Math.min(availW / bw, availH / bh), FIT_MIN_SCALE, maxS);
+			var halfW = availW / 2 / s, halfH = availH / 2 / s;
+			// A no-op whenever the box fits; otherwise the box centre is pulled until you are on screen.
+			var x = clamp((x0 + x1) / 2, me.x - halfW + FIT_PAD_BLOCKS, me.x + halfW - FIT_PAD_BLOCKS);
+			var z = clamp((z0 + z1) / 2, me.z - halfH + FIT_PAD_BLOCKS, me.z + halfH - FIT_PAD_BLOCKS);
+			return { x: x, z: z, s: s, ox: side + availW / 2, oy: top + availH / 2, availW: availW, availH: availH };
+		}
+
+		/**
+		 * One playing frame of camera easing from cam towards target. The zoom eases in log space, quickly
+		 * when it has to widen (a pearl or disengage spreads the players) and gently when it tightens, so the
+		 * view does not pump; the centre eases briskly. fitCamera only keeps you in view at the target zoom,
+		 * so the eased centre is clamped again at the eased zoom: you never leave the stage mid-ease.
+		 */
+		function easeCamera(cam, target, me) {
+			var k = target.s < cam.s ? 0.25 : 0.06;
+			var s = Math.exp(Math.log(cam.s) + (Math.log(target.s) - Math.log(cam.s)) * k);
+			var hw = Math.max(0, target.availW / 2 / s - FIT_PAD_BLOCKS), hh = Math.max(0, target.availH / 2 / s - FIT_PAD_BLOCKS);
+			var x = clamp(cam.x + (target.x - cam.x) * 0.15, me.x - hw, me.x + hw);
+			var z = clamp(cam.z + (target.z - cam.z) * 0.15, me.z - hh, me.z + hh);
+			return { x: x, z: z, s: s, ox: target.ox, oy: target.oy, availW: target.availW, availH: target.availH };
+		}
+
+		// Top-down view (x right, z down), camera fitted to the players (fitCamera).
+		function draw2d(cw, ch) {
+			var me = trackAt(m.selfKeys, t);
+			var opps = m.oppKeys.map(function (keys) { return trackAt(keys, t); });
+			var st = m.stateAt(t);
+			var focus = opps[st.opp] ? st.opp : opps.findIndex(Boolean);
+			var target = fitCamera(cw, ch, me, opps, focus);
+			if (!cam || snap || !playing || !(cam.s > 0)) cam = target; // a paused view (seek, scrub, resize) is exact
+			else cam = easeCamera(cam, target, me); // while playing, ease towards the fit (you stay in view)
+			snap = false;
+			var s = cam.s;
+			function sx(x) { return (x - cam.x) * s + cam.ox; }
+			function sz(z) { return (z - cam.z) * s + cam.oy; }
+
+			// Grid: 1-block lines (left out when they would be denser than every 8 px) and 5-block lines.
+			var x0 = Math.floor(cam.x - cam.ox / s), x1 = Math.ceil(cam.x + (cw - cam.ox) / s);
+			var z0 = Math.floor(cam.z - cam.oy / s), z1 = Math.ceil(cam.z + (ch - cam.oy) / s);
+			ctx.lineWidth = 1;
+			for (var pass = s >= 8 ? 0 : 1; pass < 2; pass++) {
+				ctx.strokeStyle = pass === 0 ? col['--grid1'] : col['--grid5'];
+				ctx.beginPath();
+				for (var gx = x0; gx <= x1; gx++) {
+					if ((gx % 5 === 0) !== (pass === 1)) continue;
+					var px = Math.round(sx(gx)) + 0.5;
+					ctx.moveTo(px, 0); ctx.lineTo(px, ch);
+				}
+				for (var gz = z0; gz <= z1; gz++) {
+					if ((gz % 5 === 0) !== (pass === 1)) continue;
+					var pz = Math.round(sz(gz)) + 0.5;
+					ctx.moveTo(0, pz); ctx.lineTo(cw, pz);
+				}
+				ctx.stroke();
+			}
+
+			var r = Math.max(7, 0.3 * s);
+
+			// Fading 1 s trails.
+			function trail(keys, color) {
+				if (!keys.length) return;
+				var steps = 24, prev = null;
+				ctx.lineWidth = 2;
+				ctx.lineCap = 'round';
+				ctx.strokeStyle = color;
+				for (var i = 0; i <= steps; i++) {
+					var tt = t - 1000 + 1000 * i / steps;
+					if (tt < keys[0].t - 1) { prev = null; continue; }
+					var p = trackAt(keys, tt);
+					if (prev) {
+						ctx.globalAlpha = 0.55 * i / steps;
+						ctx.beginPath();
+						ctx.moveTo(sx(prev.x), sz(prev.z));
+						ctx.lineTo(sx(p.x), sz(p.z));
+						ctx.stroke();
+					}
+					prev = p;
+				}
+				ctx.globalAlpha = 1;
+			}
+			trail(m.selfKeys, col['--accent']);
+			m.oppKeys.forEach(function (keys, i) { trail(keys, oppColor(i)); });
+
+			// Distance line to the opponent of the latest event (its label is drawn above the discs, below).
+			var distLabel = null;
+			if (focus >= 0 && opps[focus]) {
+				var o = opps[focus];
+				var ax = sx(me.x), az = sz(me.z), bx = sx(o.x), bz = sz(o.z);
+				ctx.save();
+				ctx.setLineDash([5, 5]);
+				ctx.strokeStyle = col['--muted'];
+				ctx.globalAlpha = 0.65;
+				ctx.lineWidth = 1.25;
+				ctx.beginPath(); ctx.moveTo(ax, az); ctx.lineTo(bx, bz); ctx.stroke();
+				ctx.restore();
+				var dist = Math.hypot(o.x - me.x, o.z - me.z);
+				var len = Math.hypot(bx - ax, bz - az);
+				if (len > 2 * r + 30) {
+					// Offset to the side of the line that points down-screen, so the label never flips above/below as players circle.
+					var nx = -(bz - az) / len, nz = (bx - ax) / len;
+					if (nz < 0) { nx = -nx; nz = -nz; }
+					distLabel = { x: (ax + bx) / 2 + nx * 16, y: (az + bz) / 2 + nz * 16, text: dist.toFixed(2) + ' blocks' };
+				}
+			}
+
+			// Opponents, then you (wedge towards the focused opponent).
+			opps.forEach(function (p, i) {
+				if (!p) return;
+				disc(sx(p.x), sz(p.z), r, oppColor(i));
+				nameLabel(sx(p.x), sz(p.z) - r - 5, oppName(m, i));
+			});
+			var mx = sx(me.x), mz = sz(me.z);
+			if (focus >= 0 && opps[focus]) {
+				var ang = Math.atan2(opps[focus].z - me.z, opps[focus].x - me.x);
+				ctx.save();
+				ctx.globalAlpha = 0.22;
+				ctx.fillStyle = col['--accent'];
+				ctx.beginPath();
+				ctx.moveTo(mx, mz);
+				ctx.arc(mx, mz, r + Math.max(18, 0.9 * s), ang - 0.42, ang + 0.42);
+				ctx.closePath();
+				ctx.fill();
+				ctx.restore();
+				disc(mx, mz, r, col['--accent']);
+				ctx.beginPath();
+				ctx.moveTo(mx + Math.cos(ang) * (r + 6), mz + Math.sin(ang) * (r + 6));
+				ctx.lineTo(mx + Math.cos(ang + 2.5) * (r - 1), mz + Math.sin(ang + 2.5) * (r - 1));
+				ctx.lineTo(mx + Math.cos(ang - 2.5) * (r - 1), mz + Math.sin(ang - 2.5) * (r - 1));
+				ctx.closePath();
+				ctx.fillStyle = col['--accent'];
+				ctx.fill();
+			} else {
+				disc(mx, mz, r, col['--accent']);
+			}
+			nameLabel(mx, mz - r - 5, m.d.player || 'You');
+			if (distLabel) pill(distLabel.x, distLabel.y, distLabel.text, PILL_TEXT, 0.95);
+
+			bursts({
+				// Rings and labels stay where the event happened; the jump label rides on you.
+				place: function (e) {
+					var self = e.hasPos ? { x: e.sx, z: e.sz } : trackAt(m.selfKeys, e.t);
+					var opp = e.hasPos ? { x: e.ox, z: e.oz } : trackAt(m.oppKeys[e.opp] || [], e.t) || self;
+					return {
+						me: { x: sx(self.x), y: sz(self.z) }, opp: { x: sx(opp.x), y: sz(opp.z) },
+						angle: Math.atan2(opp.z - self.z, opp.x - self.x)
+					};
+				},
+				meNow: { x: mx, y: mz },
+				oppNow: function (i) { return opps[i] ? { x: sx(opps[i].x), y: sz(opps[i].z) } : null; },
+				deathAt: function (e) {
+					var w = trackAt(e.youDied ? m.selfKeys : (m.oppKeys[e.opp] || []), e.t);
+					return w ? { x: sx(w.x), y: sz(w.z) } : null;
+				}
+			}, r, s);
+
+			// Scale bar.
+			var choices = [1, 2, 5, 10, 20], blocks = 1;
+			for (var c = 0; c < choices.length; c++) { blocks = choices[c]; if (blocks * s >= 44) break; }
+			var bw = blocks * s, by = ch - 14, bx0 = 14;
+			ctx.save();
+			ctx.strokeStyle = col['--muted'];
+			ctx.lineWidth = 1.5;
+			ctx.beginPath();
+			ctx.moveTo(bx0, by - 4); ctx.lineTo(bx0, by); ctx.lineTo(bx0 + bw, by); ctx.lineTo(bx0 + bw, by - 4);
+			ctx.stroke();
+			ctx.fillStyle = col['--muted'];
+			ctx.font = '500 11px ' + FONT;
+			ctx.textBaseline = 'bottom';
+			ctx.fillText(blocks + (blocks === 1 ? ' block' : ' blocks'), bx0 + bw + 6, by + 1);
+			ctx.restore();
+		}
+
+		// No positions: a 1-D view (distance from the reach of each event) above a distance-over-time strip.
+		function draw1d(cw, ch) {
+			var trackH = Math.round(ch * 0.55);
+			var left = Math.max(40, cw * 0.1), right = cw - 24;
+			var maxD = 6;
+			function dx(dist) { return left + clamp(dist, 0, maxD) / maxD * (right - left); }
+			var y = Math.round(trackH * 0.58);
+			ctx.strokeStyle = col['--grid5'];
+			ctx.lineWidth = 1;
+			ctx.beginPath(); ctx.moveTo(left, y + 0.5); ctx.lineTo(right, y + 0.5); ctx.stroke();
+			ctx.fillStyle = col['--dim'];
+			ctx.font = '500 10.5px ' + FONT;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'top';
+			for (var b = 0; b <= maxD; b++) {
+				var bx = Math.round(dx(b)) + 0.5;
+				ctx.strokeStyle = col['--grid5'];
+				ctx.beginPath(); ctx.moveTo(bx, y - 4); ctx.lineTo(bx, y + 4); ctx.stroke();
+				ctx.fillText(b + (b === maxD ? '+' : ''), bx, y + 15);
+			}
+			var thr = m.d.threeBlockCm / 100;
+			ctx.save();
+			ctx.setLineDash([4, 4]);
+			ctx.strokeStyle = col['--accent2'];
+			ctx.beginPath(); ctx.moveTo(dx(thr) + 0.5, y - 22); ctx.lineTo(dx(thr) + 0.5, y + 4); ctx.stroke();
+			ctx.restore();
+
+			var dNow = trackAt(m.distKeys, t);
+			var dist = dNow ? dNow.x : 3;
+			var st = m.stateAt(t);
+			var r = 9;
+			var ox = dx(dist);
+			disc(ox, y, r, oppColor(st.opp));
+			nameLabel(ox, y - r - 5, oppName(m, st.opp));
+			disc(left, y, r, col['--accent']);
+			nameLabel(left, y - r - 5, m.d.player || 'You');
+			pill((left + ox) / 2, y - 30, blocksText(dist) + ' blocks', PILL_TEXT, 0.95);
+			bursts({
+				place: function (e) {
+					var dd = e.reach != null ? e.reach : dist;
+					return { me: { x: left, y: y }, opp: { x: dx(dd), y: y }, angle: 0 };
+				},
+				meNow: { x: left, y: y },
+				oppNow: function () { return { x: ox, y: y }; },
+				deathAt: function (e) {
+					if (e.youDied) return { x: left, y: y };
+					var at = trackAt(m.distKeys, e.t);
+					return { x: dx(at ? at.x : dist), y: y };
+				}
+			}, r, 40);
+
+			// Strip: distance over the whole fight with a playhead.
+			var top = trackH + 10, bottom = ch - 22, sl = 40, sr = cw - 16;
+			function txp(tt) { return sl + clamp(tt / END, 0, 1) * (sr - sl); }
+			function dyp(dd) { return bottom - clamp(dd, 0, maxD) / maxD * (bottom - top); }
+			ctx.strokeStyle = col['--grid1'];
+			ctx.fillStyle = col['--dim'];
+			ctx.textAlign = 'right';
+			ctx.textBaseline = 'middle';
+			[0, 3, 6].forEach(function (v) {
+				var yy = Math.round(dyp(v)) + 0.5;
+				ctx.beginPath(); ctx.moveTo(sl, yy); ctx.lineTo(sr, yy); ctx.stroke();
+				ctx.fillText(v + ' b', sl - 6, yy);
+			});
+			if (m.distKeys.length) {
+				ctx.strokeStyle = col['--muted'];
+				ctx.globalAlpha = 0.6;
+				ctx.lineWidth = 1.5;
+				ctx.beginPath();
+				m.distKeys.forEach(function (k, i) { if (i) ctx.lineTo(txp(k.t), dyp(k.x)); else ctx.moveTo(txp(k.t), dyp(k.x)); });
+				ctx.stroke();
+				ctx.globalAlpha = 1;
+				m.evs.forEach(function (e) {
+					if (e.reach == null) return;
+					ctx.beginPath();
+					ctx.arc(txp(e.t), dyp(e.reach), 2.6, 0, Math.PI * 2);
+					ctx.fillStyle = e.kind === K.HIT ? (e.noReg ? NOREG_COLOR : TIERS[e.q].color) : e.kind === K.TAKEN ? col['--loss'] : col['--miss'];
+					ctx.fill();
+				});
+			}
+			ctx.strokeStyle = col['--accent2'];
+			ctx.lineWidth = 1.5;
+			ctx.beginPath(); ctx.moveTo(Math.round(txp(t)) + 0.5, top - 4); ctx.lineTo(Math.round(txp(t)) + 0.5, bottom + 4); ctx.stroke();
+		}
+
+		/**
+		 * Event bursts around the current time. view.place(e) gives screen points for you and that event's
+		 * opponent at the event; view.meNow is your current screen point; view.deathAt(e) places a death mark.
+		 */
+		function bursts(view, r, s) {
+			// The last 1.5 s of events, but never more than MAX_BURSTS of them per frame.
+			var from = Math.max(lowerBound(m.times, t - 1500), upperBound(m.times, t) - MAX_BURSTS);
+			for (var i = from; i < m.evs.length && m.times[i] <= t; i++) {
+				var e = m.evs[i], age = t - e.t;
+				if (e.kind === K.DEATH) continue;
+				var p = view.place(e);
+				if (e.kind === K.HIT && age < 1000) {
+					var c = e.noReg ? NOREG_COLOR : TIERS[e.q].color;
+					var at = view.oppNow(e.opp) || p.opp;
+					var k = age / 600;
+					if (k < 1) {
+						ctx.save();
+						ctx.globalAlpha = 1 - k;
+						ctx.strokeStyle = c;
+						ctx.lineWidth = 3;
+						ctx.beginPath();
+						ctx.arc(at.x, at.y, r + 3 + ease(k) * Math.max(16, 0.9 * s), 0, Math.PI * 2);
+						ctx.stroke();
+						ctx.restore();
+					}
+					var text = e.noReg ? 'NO-REG' : reachQText(e.reachQ) + ' ' + TIERS[e.q].label;
+					// Above the name label (which sits r + 5 above the disc), floating upwards.
+					pill(at.x, at.y - r - 31 - ease(age / 1000) * 14, text, c, age < 750 ? 1 : 1 - (age - 750) / 250);
+				} else if (e.kind === K.MISS && age < 520) {
+					var km = age / 520;
+					ctx.save();
+					ctx.globalAlpha = 1 - km;
+					ctx.setLineDash([4, 4]);
+					ctx.strokeStyle = e.over ? col['--miss-over'] : col['--miss'];
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.arc(view.meNow.x, view.meNow.y, r + 8 + ease(km) * Math.max(14, 0.6 * s), p.angle - 0.6, p.angle + 0.6);
+					ctx.stroke();
+					ctx.restore();
+				} else if (e.kind === K.TAKEN && age < 650) {
+					var kt = age / 650;
+					ctx.save();
+					ctx.globalAlpha = 1 - kt;
+					ctx.strokeStyle = col['--loss'];
+					ctx.lineWidth = 3;
+					ctx.beginPath();
+					ctx.arc(view.meNow.x, view.meNow.y, r + 3 + ease(kt) * Math.max(14, 0.75 * s), 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.restore();
+				} else if (e.kind === K.JUMP && age < 1000) {
+					pill(view.meNow.x, view.meNow.y - r - 31 - ease(age / 1000) * 14, e.ok ? 'JR ✔' : 'JR ✘',
+						e.ok ? col['--win'] : col['--loss'], age < 750 ? 1 : 1 - (age - 750) / 250);
+				}
+			}
+			// Deaths stay marked once they happen.
+			m.deaths.forEach(function (e) {
+				if (e.t > t) return;
+				var age = t - e.t;
+				var pos = view.deathAt(e);
+				if (!pos) return;
+				var color = e.youDied ? col['--loss'] : col['--win'];
+				cross(pos.x, pos.y, r * 0.9 * (0.6 + 0.4 * ease(age / 250)), color, Math.min(1, age / 120 + 0.2));
+				if (age < 900) {
+					ctx.save();
+					ctx.globalAlpha = 1 - age / 900;
+					ctx.strokeStyle = color;
+					ctx.lineWidth = 3;
+					ctx.beginPath();
+					ctx.arc(pos.x, pos.y, r + 4 + ease(age / 900) * 26, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.restore();
+				}
+			});
+		}
+
+		function updateUi() {
+			scrub.value = String(Math.round(t));
+			timeEl.textContent = clockTime(Math.min(t, END)) + ' / ' + clockTime(END);
+			var st = m.stateAt(t);
+			comboEl.textContent = String(st.combo);
+			streakEl.textContent = String(st.streak);
+			playBtn.innerHTML = playing ? ICON_PAUSE : (t >= T ? ICON_RESTART : ICON_PLAY);
+			playBtn.setAttribute('aria-label', playing ? 'Pause' : t >= T ? 'Replay from the start' : 'Play');
+			if (api.onTime) api.onTime(t, playing);
+		}
+		function frame(now) {
+			raf = 0;
+			if (!playing) return;
+			var dt = Math.min(100, now - lastFrame);
+			lastFrame = now;
+			t = Math.min(T, t + dt * speed);
+			if (t >= T) playing = false;
+			draw();
+			updateUi();
+			if (playing) raf = requestAnimationFrame(frame);
+		}
+		function play() {
+			if (!m.evs.length) return;
+			if (t >= T) { t = 0; snap = true; }
+			playing = true;
+			lastFrame = performance.now();
+			if (!raf) raf = requestAnimationFrame(frame);
+			updateUi();
+		}
+		function pause() {
+			playing = false;
+			if (raf) { cancelAnimationFrame(raf); raf = 0; }
+			updateUi();
+		}
+		function seek(nt) {
+			var jump = Math.abs(nt - t) > 400;
+			t = clamp(nt, 0, T);
+			if (jump) snap = true;
+			draw();
+			updateUi();
+		}
+
+		playBtn.addEventListener('click', function () { if (playing) pause(); else play(); });
+		scrub.addEventListener('input', function () { seek(+scrub.value); });
+		Array.prototype.forEach.call(speedBtns, function (b) {
+			b.addEventListener('click', function () {
+				speed = +b.getAttribute('data-speed');
+				Array.prototype.forEach.call(speedBtns, function (o) { o.setAttribute('aria-pressed', String(o === b)); });
+			});
+		});
+		canvas.addEventListener('keydown', function (ev) {
+			if (ev.key === ' ' || ev.key === 'k' || ev.key === 'K') { ev.preventDefault(); if (playing) pause(); else play(); }
+			else if (ev.key === 'ArrowRight') { ev.preventDefault(); seek(t + (ev.shiftKey ? 5000 : 1000)); }
+			else if (ev.key === 'ArrowLeft') { ev.preventDefault(); seek(t - (ev.shiftKey ? 5000 : 1000)); }
+			else if (ev.key === 'Home') { ev.preventDefault(); seek(0); }
+			else if (ev.key === 'End') { ev.preventDefault(); seek(T); }
+		});
+		canvas.addEventListener('click', function () { if (m.evs.length) { if (playing) pause(); else play(); } });
+		observeResize(stage, function () { resize(); draw(); });
+		onCleanup(function () { playing = false; if (raf) cancelAnimationFrame(raf); });
+
+		api.seek = seek;
+		api.refreshTheme = refreshTheme;
+		refreshTheme();
+		updateUi();
+		return api;
+	}
+
+	// ── Aim map ─────────────────────────────────────────────────────────────
+	function aimHtml(m) {
+		var s = m.sum, landed = s[S.LANDED];
+		var BW = 108, BH = 324, MX = 0.27 * BW / 2, MY = 0.27 * BH / 2, PAD = 8;
+		function ax(h) { return (BW / 2 + clamp(h, -1.27, 1.27) * BW / 2).toFixed(1); }
+		function ay(v) { return (BH / 2 - clamp(v, -1.27, 1.27) * BH / 2).toFixed(1); }
+		var svg = '<svg class="aim" viewBox="' + (-MX - PAD).toFixed(1) + ' ' + (-MY - PAD).toFixed(1) + ' ' + (BW + 2 * (MX + PAD)).toFixed(1) + ' ' + (BH + 2 * (MY + PAD)).toFixed(1) + '" role="img" aria-label="Aim map: where your swings met the opponent’s hitbox, front view">';
+		svg += '<rect class="margin-box" x="' + (-MX).toFixed(1) + '" y="' + (-MY).toFixed(1) + '" width="' + (BW + 2 * MX).toFixed(1) + '" height="' + (BH + 2 * MY).toFixed(1) + '" rx="6"/>';
+		svg += '<rect class="box" x="0" y="0" width="' + BW + '" height="' + BH + '" rx="4"/>';
+		svg += '<line class="guide" x1="0" y1="' + BH / 3 + '" x2="' + BW + '" y2="' + BH / 3 + '"/>';
+		svg += '<line class="guide" x1="0" y1="' + 2 * BH / 3 + '" x2="' + BW + '" y2="' + 2 * BH / 3 + '"/>';
+		svg += '<line class="guide" x1="' + BW / 4 + '" y1="' + BH / 3 + '" x2="' + BW / 4 + '" y2="' + 2 * BH / 3 + '"/>';
+		svg += '<line class="guide" x1="' + 3 * BW / 4 + '" y1="' + BH / 3 + '" x2="' + 3 * BW / 4 + '" y2="' + 2 * BH / 3 + '"/>';
+		svg += '<text class="zl" x="' + BW / 2 + '" y="' + (BH / 6 + 4) + '" text-anchor="middle">HIGH</text>';
+		svg += '<text class="zl" x="' + BW / 2 + '" y="' + (BH / 2 + 4) + '" text-anchor="middle">CENTER</text>';
+		svg += '<text class="zl" x="' + BW / 2 + '" y="' + (5 * BH / 6 + 4) + '" text-anchor="middle">LOW</text>';
+		var hits = 0, misses = 0;
+		m.evs.forEach(function (e) {
+			if (e.kind !== K.MISS) return;
+			misses++;
+			svg += '<circle class="miss" cx="' + ax(e.h) + '" cy="' + ay(e.v) + '" r="4"><title>Miss at ' + clockTime(e.t) + ', ' + reachQText(e.reachQ) + ' blocks</title></circle>';
+		});
+		m.evs.forEach(function (e) {
+			if (e.kind !== K.HIT) return;
+			hits++;
+			var c = TIERS[e.q].color;
+			var title = '<title>' + (e.noReg ? 'NO-REG ' : '') + TIERS[e.q].label + ' at ' + clockTime(e.t) + ', ' + reachQText(e.reachQ) + ' blocks, ' + ZONES[zoneOf(e.h, e.v)].toLowerCase() + '</title>';
+			if (e.noReg) svg += '<circle cx="' + ax(e.h) + '" cy="' + ay(e.v) + '" r="4"' + strokeOf(NOREG_COLOR) + ' stroke-width="1.6">' + title + '</circle>';
+			else svg += '<g><circle class="hit" cx="' + ax(e.h) + '" cy="' + ay(e.v) + '" r="4"' + fillOf(c) + '/><circle class="hit-edge" cx="' + ax(e.h) + '" cy="' + ay(e.v) + '" r="4"/>' + title + '</g>';
+		});
+		svg += '</svg>';
+		var rows = [
+			{ name: 'High', n: s[S.AIM_HIGH] }, { name: 'Center', n: s[S.AIM_CENTER] },
+			{ name: 'Edge', n: s[S.AIM_EDGE] }, { name: 'Low', n: s[S.AIM_LOW] }
+		];
+		var maxN = Math.max(1, rows[0].n, rows[1].n, rows[2].n, rows[3].n);
+		var zones = rows.map(function (z) {
+			return '<div class="zrow"><span class="zn">' + z.name + '</span><span class="bar"><i style="width:' + (100 * z.n / maxN).toFixed(1) + '%"></i></span>' +
+				'<span class="zv">' + z.n + '<small>' + pct(z.n, landed) + '</small></span></div>';
+		}).join('');
+		var thin = (m.downsampled && (hits + misses) > 0) ? '<p class="hint" style="margin-top:12px">Dots show the swings kept in this link; the zone counts use every landed hit.</p>' : '';
+		return '<section class="sec rise" aria-labelledby="aim-h"><div class="sec-head"><h2 id="aim-h">Aim map</h2><p class="hint">Front view of a player hitbox</p></div>' +
+			'<div class="panel"><div class="aim-wrap">' + svg + '<div class="zones">' + zones +
+			'<div class="legend" style="margin:4px 0 0">' +
+			'<span>' + markSvg('dot', TIERS[0].color) + 'Hit (tier colour)</span><span>' + markSvg('hollow', 'var(--miss)') + 'Miss</span></div>' +
+			(hits + misses === 0 ? '<p class="hint">No swings in this link.</p>' : '') +
+			'</div></div>' + thin + '</div></section>';
+	}
+
+	// ── Responsive SVG charts (re-rendered at the real width so text never scales) ──
+	function mountResponsiveSvg(host, build) {
+		function render() { host.innerHTML = build(Math.max(280, innerWidthOf(host))); }
+		observeResize(host, render);
+		render();
+	}
+
+	function histHtml(m) {
+		return '<section class="sec rise" aria-labelledby="hist-h"><div class="sec-head"><h2 id="hist-h">Reach</h2><p class="hint">Eye to hitbox, per swing</p></div>' +
+			'<div class="panel"><div class="legend"><span>' + markSvg('dot', 'var(--accent)') + 'Landed</span><span>' + markSvg('dot', 'var(--miss)') + 'Missed</span>' +
+			'<span><svg viewBox="-7 -7 14 14" aria-hidden="true"><line x1="0" y1="-7" x2="0" y2="7" style="stroke:var(--accent2)" stroke-width="1.5" stroke-dasharray="3 2"/></svg>3-block threshold</span></div>' +
+			'<div class="hist-host"></div></div></section>';
+	}
+
+	function histSvg(m, W) {
+		var H = 214, L = 34, R = 10, TOP = 22, B = 30;
+		var PW = W - L - R, PH = H - TOP - B;
+		var NB = 17, slot = PW / NB;
+		var landed = new Array(NB).fill(0), missed = new Array(NB).fill(0);
+		var any = false;
+		m.evs.forEach(function (e) {
+			if ((e.kind !== K.HIT && e.kind !== K.MISS) || e.reachQ < 0) return;
+			any = true;
+			var q = e.reachQ;
+			var idx = q < 60 ? 0 : q > 120 ? NB - 1 : 1 + Math.min(14, Math.floor((q - 60) / 4));
+			if (e.kind === K.HIT) landed[idx]++; else missed[idx]++;
+		});
+		if (!any) return '<p class="empty-msg">No swings in this link.</p>';
+		var maxN = 1;
+		for (var i = 0; i < NB; i++) maxN = Math.max(maxN, landed[i] + missed[i]);
+		var stepY = maxN <= 5 ? 1 : maxN <= 10 ? 2 : maxN <= 25 ? 5 : maxN <= 50 ? 10 : Math.ceil(maxN / 5 / 10) * 10;
+		var top = Math.ceil(maxN / stepY) * stepY;
+		function y(v) { return TOP + PH - v / top * PH; }
+		var s = '<svg xmlns="' + SVGNS + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Reach histogram of landed and missed swings">';
+		for (var g = 0; g <= top; g += stepY) {
+			var gy = Math.round(y(g)) + 0.5;
+			s += '<line class="' + (g === 0 ? 'axis' : 'grid') + '" x1="' + L + '" y1="' + gy + '" x2="' + (L + PW) + '" y2="' + gy + '"/>';
+			s += '<text class="tick-label" x="' + (L - 6) + '" y="' + (gy + 3.5) + '" text-anchor="end">' + g + '</text>';
+		}
+		var bw = Math.min(24, Math.max(4, slot - 4));
+		for (var b = 0; b < NB; b++) {
+			var bx = L + b * slot + (slot - bw) / 2;
+			var lo = b === 0 ? '<1.5' : b === NB - 1 ? '>3.0' : (1.4 + b / 10).toFixed(1) + '–' + (1.5 + b / 10).toFixed(1);
+			var tipText = lo + ' blocks: ' + landed[b] + ' landed, ' + missed[b] + ' missed';
+			var hL = landed[b] / top * PH, hM = missed[b] / top * PH;
+			s += '<g><title>' + esc(tipText) + '</title>';
+			s += '<rect x="' + bx.toFixed(1) + '" y="' + TOP + '" width="' + bw.toFixed(1) + '" height="' + PH + '" fill="transparent"/>';
+			if (landed[b]) s += '<rect class="landed" x="' + bx.toFixed(1) + '" y="' + (y(landed[b])).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, hL).toFixed(1) + '" rx="2"/>';
+			if (missed[b]) s += '<rect class="missed" x="' + bx.toFixed(1) + '" y="' + (y(landed[b] + missed[b])).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, hM - (landed[b] ? 2 : 0)).toFixed(1) + '" rx="2"/>';
+			s += '</g>';
+		}
+		// Boundary labels (1.5 … 3.0) under the bin edges, plus the two open bins. The 1.5 and 3.0 edges sit
+		// half a slot from "<1.5" and ">3.0", so they are labelled only when the slots are wide enough.
+		var roomy = slot >= 40;
+		s += '<text class="tick-label" x="' + (L + slot / 2).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">&lt;1.5</text>';
+		s += '<text class="tick-label" x="' + (L + (NB - 0.5) * slot).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">&gt;3.0</text>';
+		for (var k = 0; k <= 15; k++) {
+			var ex = L + (k + 1) * slot;
+			s += '<line class="axis" x1="' + ex.toFixed(1) + '" y1="' + (TOP + PH) + '" x2="' + ex.toFixed(1) + '" y2="' + (TOP + PH + (k % 5 === 0 ? 5 : 3)) + '"/>';
+			var labelled = roomy ? true : (k === 5 || k === 10);
+			if (labelled) s += '<text class="tick-label" x="' + ex.toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + (1.5 + k / 10).toFixed(1) + '</text>';
+		}
+		var thr = m.d.threeBlockCm / 100;
+		if (thr >= 1.5 && thr <= 3.0) {
+			var tx = L + slot + (thr - 1.5) / 0.1 * slot;
+			s += '<line class="thr" x1="' + tx.toFixed(1) + '" y1="' + (TOP - 8) + '" x2="' + tx.toFixed(1) + '" y2="' + (TOP + PH) + '"/>';
+			s += '<text class="thr-label" x="' + (tx - 5).toFixed(1) + '" y="' + (TOP - 10) + '" text-anchor="end">3-block ≥ ' + cmText(m.d.threeBlockCm) + '</text>';
+		}
+		return s + '</svg>';
+	}
+
+	// ── Quality breakdown and jump resets ───────────────────────────────────
+	function qualityHtml(m) {
+		var s = m.sum, landed = s[S.LANDED];
+		var counts = TIERS.map(function (_, i) { return s[S.QUALITY + i]; });
+		var maxN = Math.max.apply(null, [1].concat(counts));
+		var rows = TIERS.map(function (tier, i) {
+			return '<div class="qrow"><span class="ql"><i style="--c:' + tier.color + '"></i>' + tier.label + '</span>' +
+				'<span class="bar"><i style="width:' + (100 * counts[i] / maxN).toFixed(1) + '%;--c:' + tier.color + '"></i></span>' +
+				'<span class="qn">' + counts[i] + '</span><span class="qp">' + pct(counts[i], landed) + '</span></div>';
+		}).join('');
+		return '<section class="sec rise" aria-labelledby="q-h"><div class="sec-head"><h2 id="q-h">Hit quality</h2><p class="hint">' +
+			(landed ? plural(landed, 'landed hit') + (s[S.NOREG] ? ' · ' + s[S.NOREG] + ' NO-REG' : '') : 'No hits landed') + '</p></div>' +
+			'<div class="panel"><div class="qrows">' + rows + '</div></div></section>';
+	}
+
+	function jumpsHtml(m) {
+		var s = m.sum;
+		var nonEarly = m.evs.filter(function (e) { return e.kind === K.JUMP && !e.early; });
+		var avg = nonEarly.length ? Math.round(nonEarly.reduce(function (a, e) { return a + e.deltaMs; }, 0) / nonEarly.length) : null;
+		var chips = '<span class="chip"><b>' + s[S.J_OK] + '</b> / ' + s[S.J_ATT] + ' in the window</span>' +
+			'<span class="chip"><b>' + s[S.J_EARLY] + '</b> early</span>' +
+			'<span class="chip"><b>' + s[S.J_OPP] + '</b> chances</span>' +
+			(avg !== null ? '<span class="chip">avg <b>' + signed(avg) + '</b> ms</span>' : '');
+		return '<section class="sec rise" aria-labelledby="j-h"><div class="sec-head"><h2 id="j-h">Jump resets</h2><p class="hint">Game time after the hit; one tick is 50 ms</p></div>' +
+			'<div class="panel"><div class="jsum">' + chips + '</div><div class="jump-host"></div></div></section>';
+	}
+
+	function jumpSvg(m, W) {
+		var d = m.d;
+		// Axis half-width; bounded (validate also caps it) so the 50 ms tick loop below stays at most 41 ticks.
+		var A = clamp(d.jumpAttemptMs, 100, 1000);
+		var jumps = m.evs.filter(function (e) { return e.kind === K.JUMP; });
+		if (!jumps.length) return '<p class="empty-msg">No jump-reset attempts in this link.</p>';
+		var stacks = {};
+		var maxStack = 1;
+		jumps.forEach(function (e) {
+			var key = clamp(Math.round(e.deltaMs / 50) * 50, -A, A);
+			(stacks[key] = stacks[key] || []).push(e);
+			maxStack = Math.max(maxStack, stacks[key].length);
+		});
+		var L = 18, R = 18, ROW = 15, TOP = 30;
+		var H = TOP + Math.min(maxStack, 8) * ROW + 44;
+		var base = H - 40;
+		var PW = W - L - R;
+		function x(ms) { return L + (ms + A) / (2 * A) * PW; }
+		var s = '<svg xmlns="' + SVGNS + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Jump-reset timing strip">';
+		if (d.jumpMinMs <= d.jumpMaxMs) {
+			var bx0 = x(clamp(d.jumpMinMs, -A, A)), bx1 = x(clamp(d.jumpMaxMs, -A, A));
+			var bw = Math.max(3, bx1 - bx0);
+			s += '<rect class="band" x="' + (bx0 - (bw === 3 ? 1.5 : 0)).toFixed(1) + '" y="' + (TOP - 14) + '" width="' + bw.toFixed(1) + '" height="' + (base - TOP + 14) + '" rx="3"/>';
+			s += '<text class="region" x="' + ((bx0 + bx1) / 2).toFixed(1) + '" y="' + (TOP - 18) + '" text-anchor="middle">WINDOW</text>';
+		}
+		s += '<text class="region" x="' + x(-A / 2).toFixed(1) + '" y="' + (TOP - 18) + '" text-anchor="middle">EARLY</text>';
+		s += '<text class="region" x="' + x(Math.min(A, Math.max(d.jumpMaxMs + 50, A * 0.65))).toFixed(1) + '" y="' + (TOP - 18) + '" text-anchor="middle">LATE</text>';
+		s += '<line class="axis" x1="' + L + '" y1="' + (base + 0.5) + '" x2="' + (L + PW) + '" y2="' + (base + 0.5) + '"/>';
+		var pxPer50 = PW / (2 * A) * 50;
+		var labelEvery = pxPer50 >= 34 ? 50 : pxPer50 >= 17 ? 100 : 200;
+		for (var ms = -Math.floor(A / 50) * 50; ms <= A; ms += 50) {
+			var tx = Math.round(x(ms)) + 0.5;
+			s += '<line class="' + (ms === 0 ? 'zero' : 'axis') + '" x1="' + tx + '" y1="' + (base - (ms === 0 ? base - TOP + 14 : 0)) + '" x2="' + tx + '" y2="' + (base + (ms % 100 === 0 ? 6 : 4)) + '"/>';
+			if (ms % labelEvery === 0) s += '<text class="tick-label" x="' + tx + '" y="' + (base + 19) + '" text-anchor="middle">' + signed(ms) + '</text>';
+		}
+		s += '<text class="tick-label" x="' + (L + PW) + '" y="' + (base + 33) + '" text-anchor="end">ms</text>';
+		Object.keys(stacks).forEach(function (key) {
+			var list = stacks[key];
+			var cx = x(+key);
+			list.forEach(function (e, i) {
+				if (i >= 8) return;
+				var cy = base - 9 - i * ROW;
+				var title = '<title>' + (e.ok ? 'Reset' : e.early ? 'Early' : 'Late') + ' ' + signed(e.deltaMs) + ' ms at ' + clockTime(e.t) + '</title>';
+				s += '<g transform="translate(' + cx.toFixed(1) + ',' + cy + ')">' + title + '<circle r="6.5" class="' + (e.ok ? 'ok' : 'bad') + '"/>' +
+					(e.ok ? '<path class="glyph" d="M-3.2 0l2.1 2.3 4.3-4.4"/>' : '<path class="glyph" d="M-2.5-2.5l5 5M2.5-2.5l-5 5"/>') + '</g>';
+			});
+			if (list.length > 8) s += '<text class="tick-label" x="' + cx.toFixed(1) + '" y="' + (base - 9 - 8 * ROW + 4) + '" text-anchor="middle">+' + (list.length - 8) + '</text>';
+		});
+		return s + '</svg>';
+	}
+
+	// ── Theme toggle and boot ───────────────────────────────────────────────
+	var themeBtn = document.getElementById('theme-btn');
+	function syncThemeButton() {
+		var light = root.getAttribute('data-theme') === 'light';
+		themeBtn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+	}
+	themeBtn.addEventListener('click', function () {
+		var next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+		root.setAttribute('data-theme', next);
+		try { localStorage.setItem('kwamster-theme', next); } catch (e) { /* storage blocked */ }
+		syncThemeButton();
+		var ev;
+		try { ev = new Event('kw-theme'); } catch (e) { ev = document.createEvent('Event'); ev.initEvent('kw-theme', false, false); }
+		window.dispatchEvent(ev);
+	});
+	syncThemeButton();
+
+	function boot() {
+		teardown();
+		var token = ++bootToken;
+		var frag = location.hash.replace(/^#/, '').trim();
+		if (!KD || !KD.isSupported()) { renderUnsupported(); return; }
+		if (!frag) { renderLanding(); return; }
+		app.setAttribute('aria-busy', 'true');
+		KD.decodeFragment(frag).then(function (d) {
+			if (token !== bootToken) return;
+			// Refuse numbers no KWAMSTER build writes before drawing anything (a crafted link must not freeze the tab).
+			var problem = KD.validate(d);
+			if (problem) {
+				renderMessage('bad', 'This link could not be read',
+					'<p>The link decoded, but it holds numbers far outside anything KWAMSTER records, so it was not drawn. It was damaged, edited, or not made by KWAMSTER.</p>' +
+					'<p>Ask for the link again, ideally copied with <b>[Copy link]</b> in game and pasted in full.</p>',
+					'Out of range: ' + problem, true);
+				return;
+			}
+			try {
+				renderFight(d);
+				window.scrollTo(0, 0);
+			} catch (err) {
+				teardown();
+				renderMessage('bad', 'This fight could not be drawn',
+					'<p>The link decoded, but the page failed while drawing it. Please report this together with the link.</p>',
+					err && err.stack ? String(err.stack).split('\n').slice(0, 3).join(' | ') : String(err), true);
+			}
+		}, function (err) {
+			if (token !== bootToken) return;
+			renderError(err);
+		});
+	}
+	window.addEventListener('hashchange', boot);
+	boot();
+})();
+</script>
+</body>
+</html>

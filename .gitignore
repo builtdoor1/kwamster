@@ -1,0 +1,27 @@
+# gradle
+.gradle/
+build/
+out/
+classes/
+
+# loom / runs
+run/
+logs/
+
+# decompiled reference sources (regenerate with ./gradlew genSources)
+.ref/
+
+# idea / eclipse / vscode
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.vscode/
+bin/
+
+# os
+Thumbs.db
+.DS_Store

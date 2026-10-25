@@ -1,0 +1,10 @@
+{
+	"jump_cue": {
+		"subtitle": "subtitles.kwamster.jump_cue",
+		"sounds": [
+			{
+				"name": "kwamster:jump_cue"
+			}
+		]
+	}
+}
