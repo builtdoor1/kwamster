@@ -10,7 +10,7 @@ base {
 	archivesName = 'kwamster'
 }
 
-// The jar carries both versions: kwamster-1.0.0+1.21.11.jar. The mod version says
+// The jar carries both versions: kwamster-1.1.0+1.21.11.jar. The mod version says
 // what changed, the Minecraft version says whether the file will even load.
 
 loom {

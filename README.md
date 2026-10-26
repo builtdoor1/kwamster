@@ -34,14 +34,16 @@ KWAMSTER merges builtdoor's earlier mods **Combat Tracker**, **Combat Report** a
 - [The HUD](#the-hud)
   - [Stats panel](#stats-panel) · [Hit indicator](#hit-indicator) · [Combo counter](#combo-counter) · [Fight summary card](#fight-summary-card)
   - [Crosshair](#crosshair) · [Direction bars](#direction-bars) · [Jump sound](#jump-sound) · [Opponent stoplight (optional)](#opponent-stoplight-optional)
-  - [HUD editor](#hud-editor)
+  - [HUD editor](#hud-editor) · [HUD presets](#hud-presets)
 - [Hit sounds](#hit-sounds)
 - [Chat output](#chat-output)
 - [Fights](#fights)
+  - [Wins and losses on practice servers](#wins-and-losses-on-practice-servers)
 - [Saved fights](#saved-fights)
 - [Share links and the web viewer](#share-links-and-the-web-viewer)
 - [How every number is calculated](#how-every-number-is-calculated)
 - [Settings, tab by tab](#settings-tab-by-tab)
+  - [Picking colours](#picking-colours)
 - [Keybinds](#keybinds)
 - [Compatibility](#compatibility)
 - [Privacy and files](#privacy-and-files)
@@ -67,9 +69,12 @@ KWAMSTER merges builtdoor's earlier mods **Combat Tracker**, **Combat Report** a
 | Jump sound | A positional cue the moment a nearby player jumps, so you hear where they jumped | [Jump sound](#jump-sound) |
 | Opponent stoplight | Optional: a traffic light for your opponent moving toward or away from you | [Opponent stoplight](#opponent-stoplight-optional) |
 | Fight summary card | A card with the result and nine key numbers when a fight ends | [Fight summary card](#fight-summary-card) |
+| Practice-server results | Wins and losses are detected even on servers that teleport the loser instead of killing them, from kill messages, VICTORY / DEFEAT titles and how the fight ended | [Practice servers](#wins-and-losses-on-practice-servers) |
 | Chat output | A summary after each fight with full stats on hover, a line for every hit, or both | [Chat output](#chat-output) |
 | Saved fights | Every fight saved on your PC, browsable in game with lifetime totals | [Saved fights](#saved-fights) |
 | Share links | One click copies a link that opens the fight in a web viewer with a timeline, a top-down replay and an aim map. Nothing is uploaded | [Share links](#share-links-and-the-web-viewer) |
+| HUD presets | Eight ready-made looks (Clean, Minimal, Competitive, Neon and more), previewed live before you apply one | [HUD presets](#hud-presets) |
+| Colour picker | Click any colour swatch in the settings for a visual picker that shows the colour live, instead of typing hex codes | [Picking colours](#picking-colours) |
 | Full control | Every feature and most colours can be changed in a Cloth Config screen, and every HUD element can be dragged and resized | [Settings](#settings-tab-by-tab) |
 
 ---
@@ -88,7 +93,7 @@ You need:
 | [Mod Menu](https://modrinth.com/mod/modmenu) | optional, adds a Config button to the mod list |
 
 1. Install Fabric Loader for 1.21.11.
-2. Download `kwamster-<version>+1.21.11.jar` from [Releases](https://github.com/builtdoor1/kwamster/releases) (for example `kwamster-1.0.0+1.21.11.jar`).
+2. Download `kwamster-<version>+1.21.11.jar` from [Releases](https://github.com/builtdoor1/kwamster/releases) (for example `kwamster-1.1.0+1.21.11.jar`).
 3. Put it in your `mods` folder together with Fabric API and Cloth Config.
 4. Start the game and press **K** to open the settings.
 
@@ -370,6 +375,42 @@ Elements stay anchored to their nearest screen corner, edge or centre, so they k
 
 ---
 
+### HUD presets
+
+<p align="center">
+  <img src="docs/images/hud-presets.png" width="900" alt="The HUD presets screen with Clean selected and its live preview">
+  <br><em>Settings → HUD → HUD presets…, with Clean selected. The preview draws the real HUD elements in that look; the badge marks the look you have now.</em>
+</p>
+
+**Settings → HUD → HUD presets…** opens a gallery of ready-made looks. Pick one on the left and the preview on the right shows it at once with the real HUD elements: the stats panel, hit indicator, combo counter and crosshair on an opponent with their direction bar (**In fight**), or the summary card (**Fight over**). The strip under the preview shows the preset's four crosshair state colours and three bar colours.
+
+| Preset | Look |
+|---|---|
+| KWAMSTER | The default: violet accent on dark glass and an outlined cross. Applying it restores the shipped look |
+| Clean | Airy borderless glass at half opacity, a soft blue accent, five rows (Hits, Reach, Combo, 3-Block, Resets), the combo counter from 3 hits, no value flashes, a shorter hit indicator without misses, a card without the footer hint, a thin crosshair with a soft outline, pastel crosshair states and slimmer bars |
+| Minimal | Hits, Reach and Combo only in a compact panel, no combo counter, a short hit indicator without reach or misses, a 4 s card, a small dot crosshair and short bars |
+| Competitive | A dense, high-contrast compact panel with ten rows (Hits, Reach, Combo, Streak, Crits, Sprint, 3-Block, Resets, Interval, Advantage), a cyan accent, a 5 s card, a crisp cross with a solid black outline and bold opaque bars |
+| Full stats | All 14 rows in a compact panel and a 10 s card, on the default colours |
+| Neon | Magenta and cyan on deep indigo, a bright cyan cross with a centre dot, and neon crosshair states and bars |
+| Monochrome | Greyscale glass and text and a white ring crosshair. The crosshair states stay red, cyan and pink, because grey shades could not be told apart against the sky |
+| Classic | Minecraft's own colours: yellow labels, white values, a gold accent on grey, a plain vanilla-style cross |
+
+<p align="center">
+  <img src="docs/images/hud-preset-gallery.png" width="900" alt="The live HUD in each of the eight presets">
+  <br><em>The live HUD in each preset, after the same three hits (the hit indicator keeps the hit-tier colours, which presets never change).</em>
+</p>
+
+A preset sets the **look** only: the panel's colours, rows and compact mode, the combo counter and its threshold, value flashes, how long the hit indicator stays and what it shows, the card's timing and footer hint, the crosshair's shape, size, outline, centre dot, hit flash and state colours, and the direction bars' colours and size. It never touches positions and sizes from the [HUD editor](#hud-editor), sounds, chat, recording, the [hit tiers](#hit-tiers), detection settings, or what the panel shows between fights. Feature switches stay as they are, except that Minimal turns the combo counter off and every other preset turns the combo counter and the hit indicator back on, so trying Minimal and switching back restores them.
+
+- **Apply**, a double-click on a card, or Enter applies the look, saves it right away and reopens the settings on the HUD tab, where every entry shows the new values, so you can fine-tune from there. Changes you had not saved in the settings screen are discarded (Apply's tooltip says so). Apply reads **In use** when the selected preset is the look you have now.
+- **Back** or Esc returns without changing anything.
+- ↑ / ↓ pick a preset; ← / → switch between **In fight** and **Fight over**.
+
+<p align="center">
+  <img src="docs/images/hud-presets-fight-over.png" width="760" alt="The HUD presets screen in the Fight over view with Competitive selected">
+  <br><em>The Fight over view with Competitive selected: its summary card.</em>
+</p>
+
 ## Hit sounds
 
 Every landed hit plays the sound of its tier, on top of vanilla's own hit sounds. **The 3-block crit and the 3-block sprint hit sound different**, so you know which one you landed without looking:
@@ -464,17 +505,36 @@ Everything above is grouped into **fights**.
   | You die | **LOSS** |
   | An engaged opponent switches to spectator within 3 s of your last hit | **WIN** |
   | You switch to spectator within 3 s of the last hit you took | **LOSS** |
+  | The server announces it in chat, the action bar or a title: a kill message, a winner, VICTORY or DEFEAT | **WIN** or **LOSS** |
+  | An engaged opponent vanishes or is teleported far away within 1.5 s of your hit, and your hit was the last one | **WIN** |
+  | You are teleported far away, respawn or change world within 1.5 s of being hit, with your health at half or lower | **LOSS** |
   | The opponent leaves, is no longer tracked, or turns spectator later | DRAW |
   | The opponent is more than 16 blocks away | DRAW |
   | 8 seconds pass with no combat | DRAW |
   | You disconnect, change world or dimension, or respawn | DRAW |
   | You close the game, or turn KWAMSTER off mid-fight | DRAW |
 
-  The 3 s, 16 block and 8 s values are Advanced settings. If both players die, the first death seen decides. If a bystander you only whiffed at dies to someone else, that is a DRAW, never a WIN.
+  The 3 s, 1.5 s, 16 block and 8 s values are Advanced settings. If both players die, the first death seen decides. If a bystander you only whiffed at dies to someone else, that is a DRAW, never a WIN. The three practice-server rows are explained [below](#wins-and-losses-on-practice-servers).
 - **Counted fights**: a fight gets the summary card and the chat summary, and joins your session and lifetime totals, when it has at least **3** swings plus melee hits taken (Advanced → Minimum events), or when it is a WIN or LOSS. Shorter draws (a stray click in a lobby) are still saved unless you turn that off, but are not announced. A fight that ends because you disconnected is saved without a card or chat line.
 - **Duration** runs from the first event to the last combat event (or the death), so idle time at the end is not counted. Singleplayer pauses are excluded.
 - **Several opponents**: a 1v2 is one fight. The stats cover everyone; the primary opponent is the engaged one you exchanged the most hits with, and the others are listed as "Also engaged" and `+N`.
 - **Settings snapshot**: the 3-block reach, jump windows, combo timeout, advantage window and interval gap are copied when a fight starts, so changing them applies from the next fight.
+
+### Wins and losses on practice servers
+
+Practice and duel servers usually never let the loser die. They cancel the killing blow and teleport the loser to spawn or a lobby, so the death a normal server shows never happens, and older versions of KWAMSTER called those fights a DRAW. KWAMSTER now decides them in two ways.
+
+1. **What the server says.** While a fight runs, KWAMSTER reads server messages in chat, the action bar and titles, and looks for:
+   - kill messages: `Kwamix was slain by builtdoor`, `builtdoor eliminated Kwamix`, `Kwamix fell into the void`, `You died!`, and fancy ones like `Kwamix was given the cold shoulder by builtdoor`;
+   - winner announcements: `Winner: builtdoor`, `Loser: Kwamix`, `Kwamix won the duel!`, `You win!`, `You lost the match`, `Round 1 won by builtdoor`;
+   - one-word titles: `VICTORY!`, `WINNER!`, `DEFEAT!`, `ELIMINATED!`.
+
+   A message only counts when it is about you or someone you are fighting, so another kill in the same arena never ends your fight. Lines typed by a player are skipped, including your opponent's `<Kwamix> gg you died` (many servers deliver player chat the same way as server messages). Hit reports such as `Kwamix was hit by builtdoor` or `You shot Kwamix` are not kills.
+2. **How the fight ended.** If your opponent vanishes or is teleported more than 64 blocks within 1.5 s of your hit, and your hit was the last one, it is a **WIN**, unless the server shows their health and it never dropped to half. If you are teleported, respawn or change world within 1.5 s of being hit, with your health at half or lower, it is a **LOSS**. Ender pearls rarely fly 64 blocks, going through a portal never counts, and invisibility is never taken for a death.
+
+When neither gives an answer, for example when you were both low and the last hit you saw was yours (a server that cancels the killing blow never shows that blow, so it may have been theirs), KWAMSTER waits up to 1 s for a server message before calling it a DRAW.
+
+The chat summary's hover says how a result was decided, for example `Read from chat: "Kwamix was slain by builtdoor"` or `Opponent vanished right after your hit`. Both checks, and the 1.5 s window, are in [Advanced](#advanced). Share links store only the result, as before.
 
 ---
 
@@ -716,7 +776,33 @@ Interval = time between two consecutive registered hits on the same opponent, me
 
 Open the settings with **K** or with the Mod Menu **Config** button. Every setting has a tooltip and a **Reset** button (buttons have a tooltip only); greyed-out entries depend on a switch above them. Nothing changes until you press **Save & Quit**; **Cancel** throws the changes away (except the few buttons listed under [Saving, cancelling and errors](#saving-cancelling-and-errors)).
 
-Toggles read **Yes** (green) / **No** (red). Colours are typed as `#AARRGGBB`: the first two digits are the opacity (`ff` solid, `00` invisible). Collapsed groups (marked **+**) open when you click their header.
+Toggles read **Yes** (green) / **No** (red). Colours are written `#AARRGGBB`: the first two digits are the opacity (`ff` solid, `00` invisible). You can type them, or click the swatch next to the field to [pick one](#picking-colours). Collapsed groups (marked **+**) open when you click their header.
+
+### Picking colours
+
+<p align="center"><img src="docs/images/colour-swatch.png" width="760" alt="Colour settings with their swatches; the hovered one shows a ring and Click to pick a colour"></p>
+
+Every colour setting has a swatch to the left of its hex field, showing the colour over a checkerboard so opacity is visible. Hover it and it says **Click to pick a colour**; click it to open the picker:
+
+<p align="center">
+  <img src="docs/images/colour-picker.png" width="900" alt="The colour picker opened from the 3-block crit tier colour">
+  <br><em>The picker opened from Hit feedback → 3-block crit → Colour. The title says which setting it changes.</em>
+</p>
+
+- **Square and strips**: drag in the big square to set saturation (left to right) and brightness (top to bottom), choose the hue on the rainbow strip and the opacity on the checkered strip. Everything updates live while you drag, and the drag keeps following the mouse if it leaves the control. The mouse wheel nudges the strips and the R, G, B, A fields (hold Shift for bigger steps).
+- **Before / After**: the colour you started with next to the new one, over a checkerboard. Click **Before** to go back to the original.
+- **Sample**: the colour as text and as a bar on your panel background, the way it will read in the HUD.
+- **Hex and R, G, B, A**: type an exact colour, `#RRGGBB` (opaque) or `#AARRGGBB`, with or without the `#` (`0x` works too), or channel values from 0 to 255. All fields stay in sync; the one you are typing in keeps your text until you leave it. Its text is grey while still incomplete, red when it cannot be a colour, and amber when the value was clamped.
+- **Palette**: KWAMSTER's own colours (the accent, the seven hit-tier colours, good / warn / bad and greys) plus **Recent**, the last 8 colours you confirmed this session.
+- **Default** puts the setting's default colour in, **Done** (Enter) takes the colour, **Cancel** (Esc) leaves the setting as it was.
+- Text colours (values, labels, the tier colours) keep an opacity of at least `20`, so text never turns invisible: the blocked part of the opacity strip is darkened and the title row says "Text colour: alpha 20+".
+
+<p align="center">
+  <img src="docs/images/colour-picker-translucent.png" width="760" alt="The colour picker opened from the translucent panel background">
+  <br><em>Opened from HUD → Panel background: the checkerboard shows how see-through the colour is.</em>
+</p>
+
+**Done** works exactly like typing the colour into the field: the setting shows as changed, **Save & Quit** applies it, **Cancel** throws it away, and **Reset** still works. A greyed-out colour setting does not open the picker.
 
 ### General
 
@@ -740,6 +826,7 @@ Toggles read **Yes** (green) / **No** (red). Colours are typed as `#AARRGGBB`: t
 
 | Setting | Default | Choices | What it does |
 |---|---|---|---|
+| *HUD presets…* | button | | Opens the [HUD presets](#hud-presets) gallery: ready-made looks with a live preview |
 | Panel outside a fight | Last fight | Last fight / Session totals / Hidden | What the stats panel shows between fights |
 | Compact panel | No | Yes / No | Tighter padding and a narrower minimum width |
 | **+ Panel rows** | | 14 switches | Which rows the panel shows, in this order (below) |
@@ -925,7 +1012,12 @@ Detection constants. The 3-block reach, jump windows, combo timeout, advantage w
 | Miss target cone | 30° | 5° – 60° | …and within this angle of where you look |
 | Interval max gap | 2000 ms | 500 – 5000 ms | Longer gaps are left out of the hit interval average |
 | Spectator switch after a hit counts as a death within | 3000 ms | Off, 1 – 10000 ms | On servers that turn the loser into a spectator instead of killing them, a switch this soon after the last hit ends the fight as a win or loss |
+| Detect wins on practice servers | Yes | Yes / No | When a fight ends abruptly right after a hit (the opponent vanishes or is teleported away, or you are), decide the win or loss instead of calling it a draw ([how](#wins-and-losses-on-practice-servers)) |
+| Read kill and win messages | Yes | Yes / No | During a fight, read the server's kill messages, winner announcements and VICTORY / DEFEAT titles to decide the result. Lines players type are skipped |
+| Win detection window | 1.5 s | 0.5 – 5.0 s | How soon after the last hit an abrupt end still decides the result |
 | NO-REG immunity window | 10 ticks | Off, 1 – 20 ticks | A hit this soon after your last registered hit on the same player is NO-REG (vanilla: 10 ticks). Set 0 on combo servers with a reduced hit delay |
+
+<p align="center"><img src="docs/images/settings-advanced-results.png" width="760" alt="The end of the Advanced tab with the practice-server result settings"></p>
 
 ### Saving, cancelling and errors
 
@@ -965,7 +1057,7 @@ Screens open only when no other screen is open, so typing K in chat does nothing
   - Servers older than 1.19.4 reached through ViaVersion, ViaFabricPlus or ViaProxy send damage without saying who caused it. Until the server sends one damage event that does name a source, KWAMSTER infers it: the attacker is the nearest player within 4.5 blocks whose arm swing started in the last 2 ticks (your current opponent preferred), and your own hit counts as confirmed if you landed a registered hit on that player between roughly half your ping and your ping + 300 ms earlier (each hit confirms one damage event). While you are burning, poisoned or withered, whose damage ticks look exactly like hits on these servers, a hit taken also needs the knockback a real hit gives you. This is a heuristic: fall or cactus damage right after a nearby opponent swung can count as a hit taken, a real hit while you burn can be dropped if its knockback arrives a tick late, damage from a third player just before your hit can count as your confirmation, and a hit whose attacker's swing started more than 2 ticks earlier is dropped.
 - **Combo servers with a reduced hit delay**: set Advanced → NO-REG immunity window to 0.
 - **Servers that hide health**: damage dealt and taken show "—", and trades are counted but never won or lost (the panel shows `0W 0L`, the trade win rate reads "—"). Fights still end correctly; hidden health never reads as dead.
-- **Practice servers without death events** (a kill just teleports both players): the fight usually ends as a DRAW because the opponent is suddenly far away or gone. A switch to spectator within 3 s of the last hit is treated as a death. If you are respawned in the same dimension without a death event, the fight ends as a DRAW (world change).
+- **Practice and duel servers that teleport the loser instead of killing them**: KWAMSTER reads their kill and win messages and watches how the fight ended, so wins and losses still count ([how](#wins-and-losses-on-practice-servers)). A switch to spectator within 3 s of the last hit is treated as a death too. If a server still gives you draws, it announces results in a way KWAMSTER does not recognise yet: please [open an issue](https://github.com/builtdoor1/kwamster/issues) with the exact line it shows when you win.
 - **Hub NPCs** are ignored by the fight tracker (see [NPCs](#npcs-spears-and-other-exclusions)).
 - **Singleplayer** works; paused time is not counted.
 
@@ -981,6 +1073,7 @@ Screens open only when no other screen is open, so typing K in chat does nothing
   - `lifetime.json`: your lifetime totals.
 - A file KWAMSTER cannot read is moved aside, never deleted: a broken fight file goes to `fights/broken/`, and a broken config or lifetime file is renamed to `config.broken-<time>.json` or `lifetime.broken-<time>.json` (the settings then start from the defaults).
 - Saved fight files stay on your computer. They include player names, UUIDs and the server address you joined; share links do not include UUIDs or IP addresses.
+- During a fight KWAMSTER reads server messages and titles to spot kill and win announcements ([why](#wins-and-losses-on-practice-servers)), skipping lines players type. When a message decides a result, that one line is quoted in the saved fight file; nothing else from chat is kept.
 - Turning **KWAMSTER enabled** off makes the game behave like vanilla: no HUD, custom crosshair, bars, sounds, chat lines or new files. A fight running at that moment is saved once, silently.
 
 ---
@@ -999,7 +1092,7 @@ Screens open only when no other screen is open, so typing K in chat does nothing
 
 **A share link says it could not be read.** Chat apps sometimes cut long links. Copy it again with [Copy link] in game and paste it whole, or lower Recording & sharing → Max link length.
 
-**Every fight is a DRAW on my practice server.** That server skips death events; see [Compatibility](#compatibility).
+**Every fight is a DRAW on my practice server.** Check that Advanced → Detect wins on practice servers and Read kill and win messages are both on (see [Wins and losses on practice servers](#wins-and-losses-on-practice-servers)). If the server announces wins in a way KWAMSTER does not recognise, [open an issue](https://github.com/builtdoor1/kwamster/issues) with the exact chat line or title you see when you win.
 
 **The panel covers the scoreboard.** Move it in the HUD editor; server information always draws over KWAMSTER.
 

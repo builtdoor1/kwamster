@@ -8,8 +8,11 @@ import kwamster.core.event.EventBus;
 import kwamster.core.fight.FightManager;
 import kwamster.core.service.FightService;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
+import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
+import java.util.Objects;
 
 /**
  * The static facade every unit uses to reach CORE: the config, the event bus, the fight service, the
@@ -17,7 +20,8 @@ import java.nio.file.Path;
  *
  * <p>Installed by {@link KwamsterClient} at the start of client init (§2.1). Before that, the
  * accessors return inert placeholders (default config, an empty bus), so nothing ever sees null.
- * Client thread, except {@link #config()} reads, which are safe from any thread.
+ * Client thread, except {@link #config()} reads, which are safe from any thread (every thread but the
+ * render thread inside {@link #withPreviewConfig} gets the live config).
  */
 public final class Kwamster {
 	private static volatile KwamsterConfig config = KwamsterConfig.defaults();
@@ -27,12 +31,57 @@ public final class Kwamster {
 	private static volatile TestHooks testHooks = new TestHooks(fights, events);
 	private static volatile String modVersion;
 
+	/**
+	 * The override of {@link #withPreviewConfig}, set only by the render thread and only while its draw
+	 * runs. Plain fields on purpose, because {@link #config()} runs many times a frame: only the thread
+	 * recorded in {@link #previewThread} can match, and that is the render thread, which wrote both, so
+	 * a stale read on any other thread still falls through to the live config.
+	 */
+	private static @Nullable KwamsterConfig previewConfig;
+	private static @Nullable Thread previewThread;
+
 	private Kwamster() {
 	}
 
-	/** The live config. Fetch it every frame or tick; never cache a field. */
+	/**
+	 * The live config. Fetch it every frame or tick; never cache a field. Inside
+	 * {@link #withPreviewConfig} the render thread gets the preview config instead.
+	 */
 	public static KwamsterConfig config() {
+		KwamsterConfig preview = previewConfig;
+		if (preview != null && previewThread == Thread.currentThread()) {
+			return preview;
+		}
 		return config;
+	}
+
+	/**
+	 * Runs {@code draw} with {@link #config()} returning {@code preview} on the render thread, and the
+	 * live config everywhere else: on other threads, and on this one again as soon as {@code draw}
+	 * returns or throws. This lets the HUD presets screen draw the real HUD elements, which read
+	 * {@code config()} while they render, with a look that is not applied yet. Calls nest (the outer
+	 * override comes back afterwards). Nothing is saved and the live config is never replaced:
+	 * {@link #saveConfig()} still writes the live one.
+	 *
+	 * @throws IllegalStateException off the render thread, where the override could never be seen
+	 */
+	public static void withPreviewConfig(KwamsterConfig preview, Runnable draw) {
+		Objects.requireNonNull(preview, "preview");
+		Objects.requireNonNull(draw, "draw");
+		Minecraft mc = Minecraft.getInstance();
+		if (mc == null || !mc.isSameThread()) {
+			throw new IllegalStateException("Kwamster.withPreviewConfig must run on the render thread");
+		}
+		KwamsterConfig outerConfig = previewConfig;
+		Thread outerThread = previewThread;
+		previewConfig = preview;
+		previewThread = Thread.currentThread();
+		try {
+			draw.run();
+		} finally {
+			previewConfig = outerConfig;
+			previewThread = outerThread;
+		}
 	}
 
 	/** Writes the current config to disk ({@code clampAndFill()} first). Failures are logged, never thrown. */

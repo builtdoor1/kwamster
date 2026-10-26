@@ -121,6 +121,7 @@ public final class EventBus {
 			case HitConfirmedEvent e -> deliver(e, KwamsterListener::onHitConfirmed);
 			case DamageObservedEvent e -> deliver(e, KwamsterListener::onDamageObserved);
 			case TradeEvent e -> deliver(e, KwamsterListener::onTrade);
+			case OutcomeHintEvent e -> deliver(e, KwamsterListener::onOutcomeHint);
 			case WorldLeaveEvent e -> deliver(e, KwamsterListener::onWorldLeave);
 			case FightStartedEvent e -> deliver(e, KwamsterListener::onFightStarted);
 			case HitResolvedEvent e -> deliver(e, KwamsterListener::onHitResolved);

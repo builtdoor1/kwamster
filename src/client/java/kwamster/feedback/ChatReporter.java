@@ -278,6 +278,9 @@ public final class ChatReporter {
 			ctx += ChatFormat.SEP + "ping " + r.pingMs + " ms";
 		}
 		lines.add(ChatFormat.text(ctx, ChatFormat.DIM));
+		if (r.resultNote != null && !r.resultNote.isBlank()) {
+			lines.add(ChatFormat.text(r.resultNote, ChatFormat.DIM)); // a result decided without a death (§5.13a)
+		}
 
 		// S4 and confirmation
 		List<Component> hits = new ArrayList<>();

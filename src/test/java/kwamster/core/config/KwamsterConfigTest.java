@@ -251,6 +251,21 @@ final class KwamsterConfigTest {
 	}
 
 	@Test
+	void outcomeDetectionDefaultsAndWindowRange() {
+		KwamsterConfig.Advanced d = KwamsterConfig.defaults().advanced;
+		assertTrue(d.inferOutcomes, "practice-server wins are detected out of the box (§5.13a)");
+		assertTrue(d.readOutcomeMessages);
+		assertEquals(1500, d.outcomeWindowMs);
+		KwamsterConfig c = new KwamsterConfig();
+		c.advanced.outcomeWindowMs = 100;
+		c.clampAndFill();
+		assertEquals(500, c.advanced.outcomeWindowMs);
+		c.advanced.outcomeWindowMs = 60_000;
+		c.clampAndFill();
+		assertEquals(5000, c.advanced.outcomeWindowMs);
+	}
+
+	@Test
 	void everyTierHasADistinctDefaultSound() {
 		Set<String> ids = new HashSet<>();
 		for (HitQuality q : HitQuality.values()) {

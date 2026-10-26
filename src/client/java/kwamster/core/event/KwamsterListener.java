@@ -38,6 +38,10 @@ public interface KwamsterListener {
 	default void onWorldLeave(WorldLeaveEvent e) {
 	}
 
+	/** A kill or win message from the server about the running fight (§5.13a). */
+	default void onOutcomeHint(OutcomeHintEvent e) {
+	}
+
 	default void onFightStarted(FightStartedEvent e) {
 	}
 

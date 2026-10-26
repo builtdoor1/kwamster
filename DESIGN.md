@@ -1,6 +1,6 @@
 # KWAMSTER: design contract
 
-Version 1.0.0 · Minecraft 1.21.11 (Mojang names, `ResourceLocation` is `Identifier`) · Fabric Loader 0.19.3 · Fabric API 0.141.4+1.21.11 · Cloth Config 21.11.153 (required) · Mod Menu 17.0.0 (suggested) · Java 21 · mod id `kwamster` · display name **KWAMSTER** · author **builtdoor** · MIT · client only · jar `kwamster-<modver>+1.21.11.jar`.
+Version 1.1.0 · Minecraft 1.21.11 (Mojang names, `ResourceLocation` is `Identifier`) · Fabric Loader 0.19.3 · Fabric API 0.141.4+1.21.11 · Cloth Config 21.11.153 (required) · Mod Menu 17.0.0 (suggested) · Java 21 · mod id `kwamster` · display name **KWAMSTER** · author **builtdoor** · MIT · client only · jar `kwamster-<modver>+1.21.11.jar`.
 
 This document is the implementation contract (revision 3: every review-round-1 issue is folded in, dispositions in Appendix A; the review-round-2 fixes are folded in too, listed in Appendix B). Nine units are written in parallel: CORE first, then CAPTURE, HUD, CROSSHAIR, FEEDBACK, DIRECTION, RECORD, CONFIGUI and TEST. **Units interact only through CORE types.** If a signature or constant appears here, implement it exactly as written. If a detail is missing, choose the most conservative option and stay inside your own unit's files.
 
@@ -13,7 +13,7 @@ This document is the implementation contract (revision 3: every review-round-1 i
 | R3 | No hook may throw into vanilla. Every mixin body delegates to a static method that wraps its work in `try { … } catch (Throwable t) { KwamsterClient.LOG.error(…) }`, logging at most once per 10 s per call site. |
 | R4 | When `Kwamster.config().general.enabled == false`, every hook returns immediately, the HUD draws nothing, the crosshair falls back to vanilla, and no sound, chat line or event is produced. The game is pure vanilla. The single exception: a fight that is running at the moment the switch is turned off is finalised once with reason DISABLED on the next tick and saved silently (no sound, chat or card, because those consumers check `enabled`). No file is written after that. |
 | R5 | All user-facing text is `Component.literal(...)`. The only exceptions are the keybind names and the keybind category, which must be translation keys (CORE owns `en_us.json`). |
-| R6 | **Minecraft-free packages.** These may not import `net.minecraft.*`, `com.mojang.*`, `net.fabricmc.*` or Cloth: `kwamster.core.model`, `kwamster.core.stats`, `kwamster.core.fight.FightStateMachine`, `kwamster.core.fight.FightAccumulator`, `kwamster.core.fight.FightClock`, `kwamster.core.fight.OpponentPresence` (`kwamster.core.fight.PlayerRefs` and `FightManager` are MC glue and exempt), the event records in `kwamster.core.event` (all except `KwamsterListener` and `EventBus`), `kwamster.core.config.KwamsterConfig` and its satellite types (all except `ConfigStore`), `kwamster.capture.AimMath`, `kwamster.capture.JumpResetWatch`, `kwamster.capture.NoRegEstimator`, `kwamster.capture.RecentDeaths`, `kwamster.capture.SourcelessDamage`, `kwamster.configui.EntryChecks`, `kwamster.hud.HudLayoutMath`, `kwamster.hud.Anim`, `kwamster.hud.AsciiWidths`, `kwamster.hud.PreviewStrings`, `kwamster.crosshair.CrosshairShapes`, `kwamster.direction.RadialFilter`, `kwamster.direction.HeadBarMotion`, `kwamster.record.SharePayloadCodec` and `kwamster.record.ShareLinks`. TEST unit-tests these, plus the in-memory parts of `kwamster.record.FightIndex` (`parse`, `prune`), whose code paths load no Minecraft class. |
+| R6 | **Minecraft-free packages.** These may not import `net.minecraft.*`, `com.mojang.*`, `net.fabricmc.*` or Cloth: `kwamster.core.model`, `kwamster.core.stats`, `kwamster.core.fight.FightStateMachine`, `kwamster.core.fight.FightAccumulator`, `kwamster.core.fight.FightClock`, `kwamster.core.fight.OpponentPresence` (`kwamster.core.fight.PlayerRefs` and `FightManager` are MC glue and exempt), the event records in `kwamster.core.event` (all except `KwamsterListener` and `EventBus`), `kwamster.core.config.KwamsterConfig` and its satellite types (all except `ConfigStore`; `HudPreset` included), `kwamster.capture.AimMath`, `kwamster.capture.OutcomeText`, `kwamster.capture.JumpResetWatch`, `kwamster.capture.NoRegEstimator`, `kwamster.capture.RecentDeaths`, `kwamster.capture.SourcelessDamage`, `kwamster.configui.EntryChecks`, `kwamster.configui.ColorMath`, `kwamster.hud.HudLayoutMath`, `kwamster.hud.Anim`, `kwamster.hud.AsciiWidths`, `kwamster.hud.PreviewStrings`, `kwamster.crosshair.CrosshairShapes`, `kwamster.direction.RadialFilter`, `kwamster.direction.HeadBarMotion`, `kwamster.record.SharePayloadCodec` and `kwamster.record.ShareLinks`. TEST unit-tests these, plus the in-memory parts of `kwamster.record.FightIndex` (`parse`, `prune`), whose code paths load no Minecraft class. |
 | R7 | Code style follows the scaffold: tabs, `final` classes, Javadoc on every public type, no wildcard imports. The logger is `KwamsterClient.LOG` (SLF4J name "KWAMSTER"). |
 | R8 | No telemetry, no sockets, no HTTP, no `URLConnection`. Nothing is ported from combat-tracker's IntegrityMonitor, WebhookNotifier, InputContext, provenance or relay. The only things that leave the process are share links, and only when the user clicks a button: copied to the clipboard, or opened with the OS browser through `Util.getPlatform().openUri`. |
 | R9 | Times: event timestamps are `long` nanoseconds from `Clock.nanos()` (`System.nanoTime()`). Persisted times are `int` ms relative to fight start on the **fight clock** (wall time minus singleplayer pause time, §5.13), plus one epoch-ms anchor per fight. Jump-reset pairing uses the **client tick index** `Clock.ticks()` instead of wall time (§5.1). |
@@ -93,7 +93,7 @@ Paths are relative to `src/client/java/kwamster/` unless they start with `src/`,
 | File | Purpose |
 |---|---|
 | `KwamsterClient.java` | `ClientModInitializer`. Runs init in the order given in §2.1, wires Fabric events, holds `LOG` and `MOD_ID`. Replaces the scaffold. |
-| `Kwamster.java` | Static facade: `config()`, `saveConfig()`, `events()`, `fights()`, `services()`, `testHooks()`, `modVersion()`, `dataDir()`. |
+| `Kwamster.java` | Static facade: `config()`, `saveConfig()`, `events()`, `fights()`, `services()`, `testHooks()`, `modVersion()`, `dataDir()`, and `withPreviewConfig(cfg, draw)`, which makes `config()` return `cfg` on the render thread while `draw` runs (the HUD presets preview, §7.10). |
 | `core/KwamsterModule.java` | The entrypoint interface each unit implements (`"kwamster"` entrypoint). |
 | `core/Services.java` | Holder of service implementations. Each slot has a CORE no-op default. |
 | `core/ScreenRegistry.java` | `ScreenId` → factory (with an optional string argument). Every unit opens screens only through this. |
@@ -111,6 +111,7 @@ Paths are relative to `src/client/java/kwamster/` unless they start with `src/`,
 | `core/config/HudElementId.java` ★ | HUD element ids. |
 | `core/config/HudLayout.java` ★ | Anchor, offset and scale for one element, plus defaults. |
 | `core/config/TierStyle.java` ★ | Colour, sound and toggles for one hit-quality tier, plus defaults. |
+| `core/config/HudPreset.java` ★ | The eight HUD looks (§7.10): each writes the same fixed set of look fields; `apply`, `matches`, `matching`, `sample`, `fromName`. |
 | `core/event/KwamsterListener.java` | Listener interface, default no-op per event. |
 | `core/event/EventBus.java` | Synchronous dispatcher with FIFO re-entrancy queue. |
 | `core/event/SwingEvent.java` ★ | Capture event. |
@@ -122,6 +123,7 @@ Paths are relative to `src/client/java/kwamster/` unless they start with `src/`,
 | `core/event/DamageObservedEvent.java` ★ | Capture event (health drop). |
 | `core/event/TradeEvent.java` ★ | Capture event. |
 | `core/event/PiercingSwingEvent.java` ★ | Capture event (spear swing; counted, excluded). |
+| `core/event/OutcomeHintEvent.java` ★ | Capture event: a server kill or win message about the running fight (§5.13a). |
 | `core/event/WorldLeaveEvent.java` ★ | Disconnect, or level/local-player change. Posted only by CORE's FightManager on the client tick (§5.13). |
 | `core/event/FightStartedEvent.java` ★ | CORE event. |
 | `core/event/HitResolvedEvent.java` ★ | CORE event (swing graded). |
@@ -163,7 +165,7 @@ Paths are relative to `src/client/java/kwamster/` unless they start with `src/`,
 
 | File | Purpose |
 |---|---|
-| `capture/CaptureModule.java` | `KwamsterModule` (order 100). Registers the `CaptureControl` service and a listener for `onClientTick`, `onWorldLeave` and `onFightEnded`. Also registers `ClientTickEvents.START_CLIENT_TICK` (`CombatCapture::onClientTickStart`, the deferred sourceless-damage check, §6.3); modules init after CORE registers its `Clock` listener, so CAPTURE's runs second. |
+| `capture/CaptureModule.java` | `KwamsterModule` (order 100). Registers the `CaptureControl` service and a listener for `onClientTick`, `onWorldLeave` and `onFightEnded`. Also registers `ClientTickEvents.START_CLIENT_TICK` (`CombatCapture::onClientTickStart`, the deferred sourceless-damage check, §6.3); modules init after CORE registers its `Clock` listener, so CAPTURE's runs second. Registers `ClientReceiveMessageEvents.GAME` → `OutcomeWatch` (§5.13a). |
 | `capture/CombatCapture.java` | Static entry points called by the five CAPTURE mixins. Owns the open swing. Ports `FightWatcher.onSwingBegin`, `onLandedHit`, `onSwingCommit`, `onDamage` and `onJump`, without the recording gate. |
 | `capture/SwingCapture.java` | Port of combat-report `SwingCapture` (target resolution, `reachTo`), extended with ray reach and aim. Skips spectators. |
 | `capture/HitClassifier.java` | Port of combat-report `HitClassifier`: verbatim `charge`, `canCriticalAttack` and `isSweepAttack`. Returns `HitFlags`. |
@@ -176,17 +178,20 @@ Paths are relative to `src/client/java/kwamster/` unless they start with `src/`,
 | `capture/TradeWatch.java` | Port of combat-report `TradeWatch` with the sprint-reference fix (§5.10). Emits `TradeEvent`. |
 | `capture/HealthWatch.java` | Port of combat-report `HealthWatch`. Also emits `DamageObservedEvent`. |
 | `capture/VelocityWatch.java` | Port of combat-report `VelocityWatch`. |
+| `capture/OutcomeText.java` ★ | Reads WIN or LOSS out of a kill message, winner announcement or title; ignores chat spoken by anyone in the fight (§5.13a). |
+| `capture/OutcomeWatch.java` | Feeds system, action-bar and title text to `OutcomeText` while a fight runs and posts `OutcomeHintEvent` (§5.13a). |
 | `mixin/MinecraftAttackMixin.java` | `Minecraft.startAttack` HEAD and RETURN. |
 | `mixin/MultiPlayerGameModeMixin.java` | `MultiPlayerGameMode.attack` HEAD, `require = 0` (§6.2). |
 | `mixin/LivingEntityMixin.java` | `handleDamageEvent` HEAD, `jumpFromGround` HEAD, `handleEntityEvent` HEAD; every handler returns unless `level().isClientSide()` (R2b). |
 | `mixin/MouseHandlerMixin.java` | `MouseHandler.onButton` HEAD (click timestamp only), `require = 0`. |
 | `mixin/KeyboardHandlerMixin.java` | `KeyboardHandler.keyPress` HEAD (click timestamp only, for a keyboard-bound Attack), `require = 0`. |
+| `mixin/GuiTitleMixin.java` | `Gui.setTitle` and `Gui.setSubtitle` HEAD (read only, for §5.13a), `require = 0`. |
 
 ### HUD
 
 | File | Purpose |
 |---|---|
-| `hud/HudModule.java` | `KwamsterModule` (order 600). Registers the HUD layer with Fabric `HudElementRegistry` (before `BOSS_BAR`, §6.6), the `HUD_EDITOR` screen factory, and a bus listener (card and indicator triggers). |
+| `hud/HudModule.java` | `KwamsterModule` (order 600). Registers the HUD layer with Fabric `HudElementRegistry` (before `BOSS_BAR`, §6.6), the `HUD_EDITOR` and `HUD_PRESETS` screen factories, and a bus listener (card and indicator triggers). |
 | `hud/HudManager.java` | Holds the elements, applies layout transforms, fades, F3 hide and editor suppression. Its `render(GuiGraphics, DeltaTracker)` is the registered layer. |
 | `hud/HudElement.java` | Element interface (§7.1). |
 | `hud/HudLayoutMath.java` ★ | Anchor ↔ position, clamping, auto-anchor, snapping (§7.2). |
@@ -201,6 +206,7 @@ Paths are relative to `src/client/java/kwamster/` unless they start with `src/`,
 | `hud/elements/StoplightElement.java` | Three-light direction indicator. |
 | `hud/elements/SummaryCardElement.java` | Fight summary card. |
 | `hud/editor/HudEditorScreen.java` | Drag-to-place editor. |
+| `hud/presets/HudPresetsScreen.java` | The HUD presets gallery with a live preview of the real HUD elements (§7.10). |
 
 ### CROSSHAIR
 
@@ -255,7 +261,9 @@ Paths are relative to `src/client/java/kwamster/` unless they start with `src/`,
 | `configui/ConfigUiModule.java` | `KwamsterModule` (order 700). Registers the `SETTINGS` screen factory (`(parent, arg) -> ConfigScreenBuilder.build(parent, arg)`). |
 | `configui/ConfigScreenBuilder.java` | `static Screen build(@Nullable Screen parent, @Nullable String initialCategory)`. Builds the Cloth screen (§3 widget column, §3.12 entry rules). When `initialCategory` equals a category title, that category is passed to `ConfigBuilder.setFallbackCategory` so the screen opens on it. |
 | `configui/ButtonEntry.java` | Port of combat-tracker `ButtonEntry` (Cloth `TooltipListEntry<Object>`). |
-| `configui/GatedEntries.java` | Requirement-aware `ColorEntry`/`IntegerListEntry` subclasses: no error while their requirement fails, and never save unparsable text (§3.12). |
+| `configui/GatedEntries.java` | Requirement-aware `ColorEntry`/`IntegerListEntry` subclasses: no error while their requirement fails, and never save unparsable text (§3.12). Colour entries cover Cloth's swatch with a button that opens the colour picker (§3.12a). |
+| `configui/ColorPickerScreen.java` | The visual colour picker (§3.12a). |
+| `configui/ColorMath.java` ★ | ARGB ↔ HSV, hex and channel text, the text-alpha floor: the picker's arithmetic. |
 | `configui/EntryChecks.java` ★ | MC-free label, text-alpha and preview-volume checks used by the Cloth entries. |
 | `configui/SoundSuggestions.java` | Curated list of vanilla sound ids for the dropdowns. |
 
@@ -317,6 +325,7 @@ Cloth is a hard dependency, so ModMenuIntegration can never load without it (thi
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"GuiCrosshairMixin",
+		"GuiTitleMixin",
 		"KeyboardHandlerMixin",
 		"LivingEntityMixin",
 		"MinecraftAttackMixin",
@@ -327,7 +336,7 @@ Cloth is a hard dependency, so ModMenuIntegration can never load without it (thi
 }
 ```
 
-`defaultRequire: 1` applies only to the HEAD/RETURN injectors on methods that cannot disappear (`Minecraft.startAttack`, the three `LivingEntity` methods). Every injector whose target another client mod could plausibly reshape declares `require = 0` explicitly: `MultiPlayerGameModeMixin`, `MouseHandlerMixin`, `KeyboardHandlerMixin` and both `GuiCrosshairMixin` wrappers. A missing optional injector degrades a feature; it never crashes startup.
+`defaultRequire: 1` applies only to the HEAD/RETURN injectors on methods that cannot disappear (`Minecraft.startAttack`, the three `LivingEntity` methods). Every injector whose target another client mod could plausibly reshape declares `require = 0` explicitly: `MultiPlayerGameModeMixin`, `MouseHandlerMixin`, `KeyboardHandlerMixin`, both `GuiCrosshairMixin` wrappers and both `GuiTitleMixin` injectors. A missing optional injector degrades a feature; it never crashes startup.
 
 The HUD uses no mixin. It registers through Fabric's `HudElementRegistry` (§6.6).
 
@@ -409,6 +418,8 @@ public final class KwamsterConfig {
 | `labelArgb` | int | `0xFF9AA4B2` | alpha ≥ 0x20 | alpha colour "Labels" | HUD |
 
 `PanelRows` (every field is a boolean). Rows draw in this order: `hits = true`, `reach = true`, `combo = true`, `streak = false`, `crits = true`, `sprint = true`, `threeBlock = true`, `jumpResets = true`, `interval = false`, `taken = false`, `aim = false`, `trades = false`, `advantage = true`, `record = true` (the record row draws only in SESSION scope). The defaults are chosen so the in-fight panel (8 rows) ends above the chat band at 427×240 (§7.0 validation).
+
+Plus one ButtonEntry at the top of the tab: "HUD presets…" → `screens().open(HUD_PRESETS, current)` (§7.10).
 
 Plus one ButtonEntry: "Edit HUD layout…" → `screens().open(HUD_EDITOR, current)`.
 
@@ -579,6 +590,9 @@ ButtonEntries in this category:
 | `swingTargetConeDeg` | int | `30` | 5–60 | int slider | CAPTURE |
 | `intervalMaxGapMs` | int | `2000` | 500–5000 | int slider | CORE |
 | `deathInferenceMs` | int | `3000` | 0–10000 | int slider "Spectator switch after a hit counts as a death within" | CORE |
+| `inferOutcomes` | boolean | `true` | — | toggle "Detect wins on practice servers" (§5.13a) | CORE |
+| `readOutcomeMessages` | boolean | `true` | — | toggle "Read kill and win messages" (§5.13a). Off: no system message, action-bar message or title is read, and abrupt draws are final at once | CAPTURE, CORE |
+| `outcomeWindowMs` | int | `1500` | 500–5000 | int slider "Win detection window", text `"%.1f s"` (×100 ms). How soon after the last hit an abrupt end still decides the result, and an abrupt draw waits for a message (§5.13a) | CORE |
 | `noRegImmunityTicks` | int | `10` | 0–20 | int slider "NO-REG immunity window", text `"%d ticks"`, 0 shown as "Off". The server's hurt-immunity window used by the NO-REG estimate (§5.4); 0 disables NO-REG detection, for combo servers with a reduced hit delay. Read live at the landed hook (not part of the settings snapshot) | CAPTURE |
 
 `clampAndFill` also enforces `jumpWindowMinMs ≤ jumpWindowMaxMs ≤ jumpAttemptMs`.
@@ -657,6 +671,14 @@ Every entry follows these rules, so the settings screen looks finished:
   - every direction field is disabled while `direction.enabled` is false.
 - **Validation pauses while an entry is disabled.** Cloth 21.11's `getConfigError()` is final and falls back to `getError()` without consulting `isEnabled()`, so a greyed-out entry with bad text would block Save. Every validated entry under a requirement therefore reports no error while that requirement fails, and its save never writes an invalid value (the live config keeps the previous one; Cloth would otherwise turn bad colour text into white `-1` and bad number text into `0`). Colour and int fields use `GatedEntries` (`ColorEntry`/`IntegerListEntry` subclasses built like `ColorFieldBuilder`/`IntFieldBuilder.build()`, with the gate checked directly); string fields and dropdowns (tier Label, Sound id) use a gated error supplier and a checking save consumer. The text-colour alpha rule (≥ 0x20) is part of the gated error.
 - **Category order and titles** (these exact strings are also the `initialCategory` keys): General, HUD, Hit feedback, Fight alert, Crosshair, Direction, Recording & sharing, Advanced.
+
+### 3.12a Colour picker (CONFIGUI)
+
+- **Opening.** Every colour entry is a `GatedEntries.Colour`. Its 20 px swatch (Cloth's `ColorDisplayWidget`) is covered by a `PickSwatch` button in the entry's `widgets` list, so Cloth routes clicks, Tab focus and narration to it like to the hex field. It draws the colour over a checkerboard with a small corner fold at rest, an accent ring, a hand cursor and the tooltip "Click to pick a colour" on hover, and a red cross while the hex text is malformed. A greyed-out entry never opens the picker.
+- **`ColorPickerScreen(parent, path, initialArgb, defaultArgb, textColour, onDone)`.** The title is the setting's path ("Hit feedback · ■ 3-block crit · Colour"). A saturation/value square for the current hue (drawn per physical pixel column, so it is crisp at any GUI scale), a hue strip and an alpha strip over a checkerboard; a drag keeps following the mouse outside the control and the wheel nudges strips and channel fields (Shift: bigger steps). A Before/After preview (clicking Before restores the original), a "Sample 3.07" text and bar on `hud.panelBgArgb`, an HSV readout, a hex field (`#`/`0x` optional, 6 digits opaque or 8) and R, G, B, A fields kept in sync (the focused field keeps its text; grey while incomplete, red when invalid, amber when clamped), a palette (accent, the seven tier colours, good/warn/bad, greys) and "Recent", the last 8 colours confirmed this session. Buttons: Default, Cancel (Esc), Done (Enter); clicking a swatch or button takes no keyboard focus.
+- **Text colours** (`textColour = true`) keep alpha ≥ `MIN_TEXT_ALPHA` (0x20): the blocked part of the alpha strip is darkened and the title row reads "Text colour: alpha 20+", amber when a clamp happens.
+- **Done** writes the colour into the hex field with the body of `ColorEntry.setValue(int)` (deprecated in Cloth 21.11.153), so it is a pending edit exactly like typing: the entry shows as edited, Save applies it, Cancel discards it, Reset works. Returning restores the settings list's scroll position (Cloth rebuilds the list when its screen is shown again).
+- **Rendering.** 1.21.11's GUI renderer slows down with the number of separate shapes per frame, so the square and checkerboards (about 1,300 rects) are batched into a few combined draws (`QuadBatch`).
 
 ---
 
@@ -856,7 +878,7 @@ public interface FightArchive {                                               //
 	void shutdown();
 }
 public final class ScreenRegistry {
-	public enum ScreenId { SETTINGS, HUD_EDITOR, SAVED_FIGHTS }
+	public enum ScreenId { SETTINGS, HUD_EDITOR, SAVED_FIGHTS, HUD_PRESETS }
 	@FunctionalInterface public interface Factory { Screen create(@Nullable Screen parent, @Nullable String arg); }
 	public void register(ScreenId id, Factory factory);
 	public @Nullable Screen create(ScreenId id, @Nullable Screen parent);              // arg = null
@@ -867,7 +889,7 @@ public final class ScreenRegistry {
 }
 ```
 
-`Screen` here is `net.minecraft.client.gui.screens.Screen`. The optional `arg` means: SETTINGS → initial Cloth category title (§3.12); HUD_EDITOR → `HudElementId.name()` to preselect; SAVED_FIGHTS → ignored. An unknown arg is ignored.
+`Screen` here is `net.minecraft.client.gui.screens.Screen`. The optional `arg` means: SETTINGS → initial Cloth category title (§3.12); HUD_EDITOR → `HudElementId.name()` to preselect; SAVED_FIGHTS → ignored; HUD_PRESETS → a `HudPreset` name to preselect (default: the preset in use). An unknown arg is ignored.
 
 ### 4.5 Fight service and live view (CORE)
 
@@ -1027,11 +1049,18 @@ public final class StatsTotals {
 ### 4.9 MC-free fight core (CORE) ★
 
 ```java
-/** distance = self.distanceTo(opponent): 3-D, feet positions (Combat Report's distanceToSqr). */
-public record OpponentPresence(boolean found, boolean alive, boolean spectator, double distance) {
+/** distance = self.distanceTo(opponent): 3-D, feet positions (Combat Report's distanceToSqr).
+ *  teleported: the server position jumped more than TELEPORT_BLOCKS since the last tick; healthFrac:
+ *  (health + absorption) / max health, NaN when unknown (§5.13a). */
+public record OpponentPresence(boolean found, boolean alive, boolean spectator, double distance,
+		boolean teleported, float healthFrac) {
 	public static final OpponentPresence SYNTHETIC = new OpponentPresence(true, true, false, 3.0);
+	public OpponentPresence(boolean found, boolean alive, boolean spectator, double distance); // teleported false, health NaN
 }
-public record SelfState(boolean dead, boolean spectator) {}
+public record SelfState(boolean dead, boolean spectator, boolean teleported, float healthFrac, boolean inPortal) {
+	public SelfState(boolean dead, boolean spectator); // teleported false, health NaN, not in a portal
+	public SelfState(boolean dead, boolean spectator, boolean teleported, float healthFrac); // not in a portal
+}
 
 /** Every nanos argument is on the fight clock (FightManager subtracts paused time first, §5.13). */
 public final class FightStateMachine {
@@ -1046,9 +1075,13 @@ public final class FightStateMachine {
 	public void onKeepAlive(PlayerRef who, long nanos);
 	public boolean isEngaged(UUID who);
 	public void onDeath(boolean self, PlayerRef who, long nanos);      // → ENDING (self, or an engaged opponent); first death wins
-	public void forceEnding(FightEndReason reason, long nanos);         // → ENDING unless already ENDING
-	/** Evaluates rules 1–8 of §5.13; returns the reason to finalise now, or null. */
+	public void forceEnding(FightEndReason reason, long nanos);         // → ENDING unless already ENDING; WORLD_CHANGE runs §5.13a first
+	/** Evaluates rules 1–8 of §5.13 with rule 5a (§5.13a); returns the reason the fight ends with, or null. */
 	public @Nullable FightEndReason tick(long nanos, OpponentPresence p, SelfState self);
+	public void onOutcomeHint(boolean win, long nanos, String note);    // §5.13a
+	public void noteOpponentHealthVisible(boolean visible);             // §5.9 flag, passed every tick
+	public boolean awaitingEvidence(long nanos);                        // an abrupt draw still waiting for a message
+	public @Nullable String resultNote();                               // how an inferred WIN or LOSS was decided
 	public FightEndReason pendingReason();
 	public long endNanos();                  // §5.13
 	public PlayerRef opponent();
@@ -1383,14 +1416,14 @@ mode = critReady && onTarget ? CRIT_READY_ON_PLAYER : onTarget ? ON_PLAYER : cri
 
 **Per-tick order in `FightManager.onClientTick`** (core listener, first in `postTick`, which is not a dispatch, §4.3). Steps 1 and 6 run in every phase (IDLE included); steps 2–5 run only in the phase they name. Before step 1, the fight clock's pause bookkeeping runs (above).
 1. **Identity tracking.** Read `mc.level`, `mc.player` and `mc.getConnection()`. Compute `disconnected = disconnectPending.getAndSet(false) || (lastLevel != null && (mc.level == null || mc.getConnection() == null))`. Compute `worldChanged = !disconnected && lastLevel != null && mc.level != null && (mc.level != lastLevel || mc.player != lastPlayer || (mc.player != null && mc.player.getId() != lastPlayerId))`. A same-dimension respawn keeps the same `ClientLevel` (a new one is built only when the dimension key changes, client/multiplayer/ClientPacketListener.java:1235–1258) but always replaces `mc.player`, which is why the player instance is compared too.
-2. If the phase is ENDING: finalise now with the pending reason (a death seen before the disconnect or world change wins). Go to step 6.
-3. If ACTIVE, the first matching forced reason calls `forceEnding(reason, fight(now))` and finalises now:
+2. If the phase is ENDING: finalise now with the pending reason (a death seen before the disconnect or world change wins). Exception: while `awaitingEvidence(fight(now))` (an abrupt draw waiting for a kill or win message, §5.13a) it does nothing, unless `disconnected` or `!general.enabled`. Go to step 6.
+3. If ACTIVE, the first matching forced reason calls `forceEnding(reason, fight(now))` and finalises now with the pending reason (WORLD_CHANGE goes through §5.13a first and may become a WIN, a LOSS, or a draw that waits for a message):
    1. `disconnected` → DISCONNECT
    2. `worldChanged` → WORLD_CHANGE
    3. `!general.enabled` → DISABLED (finalised and saved silently, R4)
 
    (GAME_EXIT never comes from the tick: it is forced by the `CLIENT_STOPPING` handler, §2.1.)
-4. If still ACTIVE and not paused: build `OpponentPresence` for the current opponent and `SelfState`, and call `tick(fight(now), presence, self)`, which evaluates rules 1–8 below. A non-null reason finalises now.
+4. If still ACTIVE and not paused: pass `noteOpponentHealthVisible(record.opponentHealthVisible)`, build `OpponentPresence` for the current opponent and `SelfState` (each with its teleport flag and health fraction, §5.13a), and call `tick(fight(now), presence, self)`, which evaluates rules 1–8 below. A non-null reason finalises now unless `awaitingEvidence`.
 5. While ACTIVE: ping sampling (below).
 6. If `disconnected`, post `WorldLeaveEvent(DISCONNECT)`; else if `worldChanged`, post `WorldLeaveEvent(WORLD_CHANGE)`. This happens **after** any finalisation in this tick, so CAPTURE's `onWorldLeave` resets `HealthWatch`, `TradeWatch` and `JumpResetWatch` only after `flushPending` has run. Then store `lastLevel = mc.level`, `lastPlayer = mc.player`, `lastPlayerId`.
 
@@ -1405,17 +1438,20 @@ mode = critReady && onTarget ? CRIT_READY_ON_PLAYER : onTarget ? ON_PLAYER : cri
 | 3 | The current opponent is engaged and found with `isRemoved()` or `isDeadOrDying()` (the CAPTURE "living" predicate, §5.4; `isAlive()` is not used because it reads `health > 0`, false for NaN-hidden health. Best-effort: these read synced health, which some servers spoof; the authoritative signal is rule 1's `handleEntityEvent(3)`. `Pose.DYING` is **not** used: only `LivingEntity.die` sets it (world/entity/LivingEntity.java:1451) and `ServerPlayer.die` never calls `super`, server/level/ServerPlayer.java:862–916) | OPPONENT_DIED |
 | 4 | The current opponent is engaged, `isSpectator()`, and `now − lastDealt ≤ deathInferenceMs` | OPPONENT_DIED |
 | 5 | Self `isSpectator()` and `now − lastTaken ≤ deathInferenceMs` | SELF_DIED |
+| 5a | `inferOutcomes` and an abrupt end right after a hit (§5.13a): you teleported, or the engaged opponent vanished or teleported | OPPONENT_DIED or SELF_DIED |
 | 6 | The current opponent is not in `mc.level.players()` (logged off, untracked), or is a spectator outside rule 4, or is not engaged and dead | OPPONENT_LEFT |
 | 7 | `presence.distance > fightMaxDistance` (3-D feet distance, `self.distanceTo(opponent)`) | OPPONENT_FAR |
 | 8 | `now − lastCombat > fightIdleMs` (strictly greater) | IDLE |
+
+Rules 6 and 7, and a WORLD_CHANGE that §5.13a leaves undecided, are **abrupt draws**: within `outcomeWindowMs` of the last combat they wait `EVIDENCE_GRACE_MS` (1000 ms) in ENDING for a kill or win message (§5.13a). Rule 8 never waits.
 
 Forced reasons (FightManager, steps 3 and §2.1): DISCONNECT, WORLD_CHANGE, DISABLED, GAME_EXIT.
 
 **Result.** `resultOf(reason)`: OPPONENT_DIED → WIN, SELF_DIED → LOSS, everything else → DRAW. If both players die, the first death processed decides; later deaths are ignored.
 
-**Duration.** `endNanos` is the death time for the two death reasons, otherwise `lastCombatNanos`. Like Combat Report, dead air is not charged. `durationMs = max(0, (endNanos − startNanos)/1e6)` on the fight clock.
+**Duration.** `endNanos` is the death time for the two death reasons seen through a death event or rules 2–5, otherwise `lastCombatNanos` (inferred results of §5.13a included). Like Combat Report, dead air is not charged. `durationMs = max(0, (endNanos − startNanos)/1e6)` on the fight clock.
 
-**ENDING phase.** Death events and `endSyntheticFight` set ENDING; the fight is finalised on the next client tick (step 2), so ENDING lasts at most one tick. While ENDING:
+**ENDING phase.** Death events and `endSyntheticFight` set ENDING; the fight is finalised on the next client tick (step 2), so ENDING lasts one tick, or at most `EVIDENCE_GRACE_MS` for an abrupt draw (§5.13a). While ENDING:
 - **Ignored** (and never allowed to open a new fight before finalisation): `SwingEvent`, `HitTakenEvent` (melee and projectile), `PiercingSwingEvent`, further `DeathEvent`s.
 - **Still accumulated**: `TradeEvent` with `t ≤ endNanos` (its nanos is the later hit's time), every direct `HitConfirmedEvent` and `DamageObservedEvent` (they refer back to earlier hits; the killing blow's confirmation usually arrives with the death, and its health drop is captured by the extra sample in finalisation step 1), and `JumpResetEvent` whose `hitNanos ≤ endNanos`.
 
@@ -1432,6 +1468,23 @@ Forced reasons (FightManager, steps 3 and §2.1): DISCONNECT, WORLD_CHANGE, DISA
 **Server label.**
 - `mc.hasSingleplayerServer()` → "Singleplayer".
 - Otherwise `mc.getCurrentServer().ip`, with any `:port` stripped and lower-cased. Unknown → "".
+
+### 5.13a Results without a death event (practice and duel servers)
+
+Practice and duel servers usually cancel the killing blow and teleport the loser to spawn (or another world) instead of letting them die, so no entity event 3 arrives and rules 1–5 never fire. Without this section such a fight ends through rule 6 (the loser vanished), rule 7 (they are far away now) or WORLD_CHANGE, all draws. Two signals decide it instead. Both reuse the OPPONENT_DIED and SELF_DIED reasons, so payload v1 and the viewer are unchanged; `FightRecord.resultNote` (local only, never in a share link) says how the result was decided, and the chat summary's hover shows it.
+
+**Inference** (`advanced.inferOutcomes`, rule 5a). Health samples: every tick `tick()` stores the opponent's and your `healthFrac` (128 slots, enough for the 5 s maximum window). "Low" means the minimum finite sample within `outcomeWindowMs` is at most `LOW_HEALTH` = 0.5; the minimum, not the latest sample, because servers reset health on the same tick as the teleport. Your hit is "last" when `lastDealt > lastTaken`, the current opponent is engaged, and `now − lastDealt ≤ outcomeWindowMs`.
+- **The engaged opponent vanished** (not in `mc.level.players()`) **or teleported** (server position, i.e. the interpolation target, jumped more than `TELEPORT_BLOCKS` = 64 since the last tick, farther than an ender pearl usually goes) while you did not move: OPPONENT_DIED if your hit is last and their death is plausible: their health is hidden (`opponentHealthVisible` false, §5.9) or was low.
+- **You teleported** (more than 64 blocks in one tick), or a **WORLD_CHANGE** arrives (respawn, dimension or server switch): SELF_DIED if your health was low, they hit you within the window, and either their hit is last or their visible health stayed above 0.5 the whole window; else OPPONENT_DIED if your health was not low, your hit is last and their death is plausible; else undecided. A cancelled killing blow sends no damage event, so their final hit is invisible: with both players low and your hit last it stays undecided instead of guessing WIN.
+- Travel is not a death: neither self rule fires within `PORTAL_GRACE_MS` (2000 ms) of a tick on which you stood in a nether portal, end portal or end gateway block (`SelfState.inPortal`, checked at your feet and eyes), so escaping through a portal at low health stays a draw.
+- Invisibility is not a signal (an invisibility potion would read as a death).
+
+**Messages** (`advanced.readOutcomeMessages`). CAPTURE's `OutcomeWatch` reads system and action-bar messages (`ClientReceiveMessageEvents.GAME`) and titles and subtitles (`GuiTitleMixin`) while a fight runs; signed player chat never reaches it. `OutcomeText.classify(text, selfName, opponentNames, chatLine)` returns WIN or LOSS (plus the opponent named as the one who died or lost) for:
+- kill messages: the victim is named before a death verb in the passive form ("Kwamix was slain by builtdoor", "Kwamix died", "Kwamix fell into the void whilst fighting builtdoor") and after it in the active form ("builtdoor eliminated Kwamix"). Kill verbs are a fixed list that leaves out hit verbs ("shot", "smashed"), which some servers use for hit feedback; any "&lt;victim&gt; was … by &lt;killer&gt;" that names you and an opponent also counts, minus non-kill verbs ("hit", "tagged", "challenged");
+- winner announcements: "Winner: X", "Loser: X", "X won the duel", "You win", "You lost the match", "Round 1 won by X"; "won 50 coins", "win streak" and "lost connection" are not results;
+- one-word titles: VICTORY / WINNER, DEFEAT / ELIMINATED.
+
+A line spoken by you or an opponent (up to four words, then `:`, `»` or `>`, whose last word is your or their name) is ignored, because many servers send player chat as system messages; a title is never treated as chat. A message about players outside the fight decides nothing. FightManager ignores a hint that names an opponent who is not engaged. While ACTIVE a hint ends the fight with its result (a WIN needs an engaged opponent); during an abrupt draw's evidence wait it replaces the draw; otherwise (after a death, or once the wait ran out) it is ignored.
 
 ### 5.14 Multiple players and opponent switching
 
@@ -1628,6 +1681,7 @@ HudElementRegistry.attachElementBefore(VanillaHudElements.BOSS_BAR,
 | `ClientTickEvents.START_CLIENT_TICK` | CORE | `Clock.onTickStart()` (tick index for §5.1). Client thread. |
 | `ClientTickEvents.START_CLIENT_TICK` | CAPTURE (registered in `CaptureModule.init`, so after CORE's) | `CombatCapture.onClientTickStart`: the one deferred re-check of a sourceless hit taken (with the knockback check while burning, poisoned or withered), then a death of yours held behind it (§6.3). Client thread. |
 | `ClientTickEvents.END_CLIENT_TICK` | CORE | `Keybinds.handle`, `bus.postTick(mc)` → FightManager tick (disconnect/world-change detection and finalisation, §5.13), CAPTURE tick (`HealthWatch`, `TradeWatch`, `VelocityWatch`, and the jump-press rising edge of §5.1 while unpaused; each null-checks `mc.level`/`mc.player`), DIRECTION tick. Fires on ticks with no level too. Client thread. |
+| `ClientReceiveMessageEvents.GAME` | CAPTURE (registered in `CaptureModule.init`) | `OutcomeWatch.onGameMessage`: system and action-bar messages, read for kill and win announcements while a fight runs (§5.13a). Client thread (packet handling). |
 | `ClientPlayConnectionEvents.DISCONNECT` | CORE | **Off-thread (Netty IO, R2a).** `fightManager.markDisconnectPending()` only; the next END_CLIENT_TICK does the rest. |
 | `ClientLifecycleEvents.CLIENT_STOPPING` | CORE only (registered in §2.1 step 2, before modules) | `forceEnd(GAME_EXIT)` then `services().archive().shutdown()`. Client thread. RECORD registers nothing here. |
 | `KeyBindingHelper.registerKeyBinding` | CORE | §11 |
@@ -1878,6 +1932,21 @@ A compact card: header, divider, and a 3 × 3 grid of cells, with the background
   - Exit: fade over `cardFadeMs`.
   - If a new fight starts while the card shows, it fades out over 200 ms.
 - **Preview.** `HudPreviewData` includes a worst-case card (16-character name, `100%`, `12/17`, a long key name) so overflow shows in the editor.
+
+### 7.10 HUD presets (`HudPreset` ★, `HudPresetsScreen`)
+
+**Presets.** KWAMSTER (the shipped defaults), Clean, Minimal, Competitive, Full stats, Neon, Monochrome, Classic. Each preset is a fresh default config with its style written over it, and `apply` copies the same fixed set of **look fields** (`HudPreset.fieldPaths()`) and nothing else, so applying one after another always ends on exactly the last one, and `matching(cfg)` names the preset a config shows (the "Current" badge). The look fields:
+- `hud`: the five colours, `panelCompact`, the 14 `rows`, `comboCounterEnabled`, `comboCounterMin`, `valueFlash`;
+- `feedback`: `indicatorEnabled`, `indicatorDurationMs`, `indicatorShowReach`, `indicatorShowMisses`;
+- `alert`: `cardDurationMs`, `cardFadeMs`, `cardFooterHint`;
+- `crosshair`: shape, size, gap, thickness, outline and its colour, centre dot, hit flash and its length, the four state colours;
+- `direction`: the three bar colours, backdrop, bar width and height.
+
+Never touched: detection, sounds, chat, recording, the hit tiers, the master switch, every other feature switch, positions and scales (`layouts`), `crosshair.scaleWithGui` and `hud.panelWhenIdle`. Only Minimal switches an element off (the combo counter); every other preset turns the combo counter and the hit indicator back on. In every preset the four crosshair state colours stay clearly apart (Monochrome keeps red/cyan/pink states), text colours keep alpha ≥ 0x20, and stepped values sit on their Cloth slider steps.
+
+**Screen.** Cards on the left (name, description, a four-square swatch; the preset in use carries a "Current" badge), a preview on the right and a legend (the four crosshair state colours, the three bar colours) under it. The preview draws a sky-and-grass backdrop, vanilla's default-skin player model as the opponent with its direction bar and name tag, and the real stats panel, hit indicator, combo counter and summary card through `HudManager.drawElement` with their preview data, inside `Kwamster.withPreviewConfig(sample, …)`. One deep copy of the live config per preset is made when the screen opens (Gson round trip, `clampAndFill`, `apply`), so the preview keeps the player's own tiers, 3-block reach and feature switches. The crosshair geometry is mirrored from CROSSHAIR's `CrosshairShapes` (R1). Two views: **In fight** (panel, crosshair on the opponent in its on-a-player colour, indicator, combo) and **Fight over** (card, crosshair at rest).
+
+**Controls.** ↑/↓ choose a card, ←/→ switch the view, double-click or Enter applies. **Apply** (inactive, "In use", for the preset in use) applies to the live config, saves, and opens a fresh settings screen on the HUD tab whose parent is the old settings screen's parent (read from Cloth's `parent` field; back-to-game if unreadable), so its entries show the new values and the stale screen's Save cannot write the old look back. Unsaved edits in the old settings screen are discarded; Apply's tooltip says so. **Back** and Esc return unchanged.
 
 ---
 
@@ -2236,7 +2305,7 @@ Run with `JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStoreType=Windows-ROOT ./gradle
 | `capture/SourcelessDamageTest` | Swing-age rule; dropped when nobody is swinging nearby; the nearest swinging player is picked; the fight opponent is preferred only if it qualifies; inclusive reach limit and NaN rejected; a confirmation needs a registered swing between `minConfirmAgeMs` (max(0, min(ping − 50, ping/2))) and ping + 300 ms old and spends it (one event per swing; a too-young event leaves it); knockback: a push away from the attacker counts (standing, sprinting at them, falling), a fire-tick velocity (no push, upward only, towards the attacker) and an unchanged or non-finite velocity do not; an attacker on top of you is judged by speed. |
 | `core/stats/StatsCalculatorTest` | Scripted record covering: accuracy; landed reach avg and max; miss reach and over-reach; aim counts sum to landed; quality counts sum to landed; combo sequence D D K D D D → best 3, combosDealt 2, avg 2.5; timeout splits a chain; a miss resets the streak but a hit taken does not; **NO-REG hits** count in landed/quality/immuneHits but neither extend nor break combos or streaks and are skipped by intervals; intervals use `t − clickLeadMs`, exclude > maxGap and cross-opponent pairs; jump pct, early/late and avg delta recomputed from `deltaMs` and the settings snapshot (success + early + late = attempts even if the stored `success` flags disagree); jump opportunities derived from `hitsTaken[].onGround`; the miss maximum keeps the range of the miss that set it (`missReachMaxLimit`); **a WEAK sprinting hit** is not a sprint hit and is in the crit-rate denominator; `sprintHits == quality[1] + quality[4]`; trades win% excludes unknown damage and evens; confirmation matching (**earliest** unconfirmed swing within `latestPing + 300` ms; unmatched confirmations dropped; THORNS never confirms); damage linking windows; an empty record gives all zeros and no NaN; current combo and streak at `nowRel`, and 0 for final; **live replay:** feeding a scripted sequence event by event, `comboAfter`/`streakAfter`/`intervalMs` computed after each event equal `compute(record, tRel)` at that moment, including a same-tick trade (hit taken processed before your swing). |
 | `core/stats/AdvantageModelTest` | No events → 0. 3 dealt and 0 taken, holding combo 3 → 1.0. 2 dealt and 2 taken, holding combo 1 → 0.1667. Events older than W are ignored. NO-REG hits are not in `d`. The label thresholds ±0.15 hold. A **0 ms fight** gives n = 1 sample and finite `advYouPct`/`advThemPct`. The final advantage uses the chain state at `durationMs`. |
-| `core/fight/FightStateMachineTest` | A miss opens a fight with a provisional (non-engaged) opponent. A melee hit taken opens one (engaged). A projectile from an engaged opponent keeps a fight alive; from anyone else it is ignored and never opens a fight. Idle ends at `> fightIdleMs` (not at exactly 8000). OPPONENT_FAR at a 3-D distance of 16.01. OPPONENT_LEFT when not found. Death of an engaged opponent → WIN; death of a provisional (only-missed) opponent → OPPONENT_LEFT; death of self → LOSS; duration to the death time. Spectator within `deathInferenceMs` after a hit → WIN, after → LEFT. A non-authoritative miss at a third player does not retarget or engage; an authoritative hit does. While ENDING, swings, hits taken and spear swings are ignored and cannot open a fight; a second death is ignored. `forceEnding` while ENDING keeps the death reason. `resultOf` mapping. |
+| `core/fight/FightStateMachineTest` | A miss opens a fight with a provisional (non-engaged) opponent. A melee hit taken opens one (engaged). A projectile from an engaged opponent keeps a fight alive; from anyone else it is ignored and never opens a fight. Idle ends at `> fightIdleMs` (not at exactly 8000). OPPONENT_FAR at a 3-D distance of 16.01. OPPONENT_LEFT when not found. Death of an engaged opponent → WIN; death of a provisional (only-missed) opponent → OPPONENT_LEFT; death of self → LOSS; duration to the death time. Spectator within `deathInferenceMs` after a hit → WIN, after → LEFT. §5.13a: the opponent vanishing or teleporting right after your hit → WIN with a note (not after their hit, not outside the window, not with visible high health); an abrupt draw waits `EVIDENCE_GRACE_MS` and a hint during the wait decides it, a late hint does not; a hint while ACTIVE decides outright (a WIN needs an engaged opponent, a real death is never overridden); your teleport after their hit with low health → LOSS, after your hit → WIN unless you were low too (then a draw, unless their visible health stayed high); WORLD_CHANGE the same way, or a draw that waits; portal travel is never a result; the switches and the window are read live; reset clears the note. A non-authoritative miss at a third player does not retarget or engage; an authoritative hit does. While ENDING, swings, hits taken and spear swings are ignored and cannot open a fight; a second death is ignored. `forceEnding` while ENDING keeps the death reason. `resultOf` mapping. |
 | `core/fight/FightAccumulatorTest` | Opponent indices keyed by UUID (a renamed UUID keeps its index and first name). `engaged` set by landed hits and melee hits taken, not by misses. Primary-opponent selection among engaged only; index 0 when nobody is engaged. Positions relative to the origin. Damage drops of non-opponents never add opponents; self drops have `opp = −1`. NaN/Infinity inputs are stored as 0 (−1 for `rayReach`) with `*Known = false`, and the record still serialises with `Json.GSON`. `finish` sets result, reason and duration. Gson round-trip of the finished record is equal field-for-field. |
 | `core/fight/FightClockTest` | (Tests the MC-free helper `FightClock` used by FightManager: `pause(now)`, `resume(now)`, `toFight(nanos)`.) A 5 s pause between two events removes 5 s from their `t` difference and from `durationMs`; no idle end is triggered by paused time. |
 | `record/SharePayloadCodecTest` | varint and zigzag edge values (0, 127, 128, 2^31, −1, −64, −65). Round-trip of a fixed record: header and summary are exact, events within quantisation (reach ±0.0125, aim ±0.005, t ±5 ms, positions ±0.05). All flag combinations, including MULTI with 2 and 4 opponents (per-event `opp` survives; a non-table bystander's events are omitted while the summary still counts them). The NO-REG bit survives. Tie order: a hit taken and a swing at the same ms decode TAKEN first. Reserved kinds stop decoding gracefully (`truncated = true`). A 4-byte multibyte name is truncated on a code-point boundary. An empty fight encodes and decodes. Quantisers round reach down (`reachQ`, `reachCm`; round-trip bound `0 ≤ reach − q/40 < 0.025`) and the viewer's reach text never overstates the 3-block threshold. Over-reach misses (3.004 → q 121, viewer 3.02) and an over-reach miss maximum (S10 301, not 300) never decode at or inside the range; far-over and in-range misses stay rounded down. A leading U+FEFF stays part of a name. Out-of-range fields are rejected as malformed; the inflated size is capped. **Writes the golden vectors** of §9.6 to `build/share-vectors/`, including `at_size_cap` and the `rejected/` set. |
@@ -2247,7 +2316,10 @@ Run with `JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStoreType=Windows-ROOT ./gradle
 | `direction/RadialFilterTest` | Approach at 4.3 b/s → GREEN within 4 ticks. Standing → YELLOW. Retreat → RED. Pure strafe (perpendicular) → YELLOW. Speed oscillating ±0.2 around `enterBps` causes no flicker. A 10-block teleport produces no spike and reseeds. A knockback hold freezes the state for `kbHoldMs`. `smoothingMs = 0` passes the raw value. |
 | `hud/HudLayoutMathTest` | Positions for all 9 anchors at W = 480, H = 270. Clamping. Auto-anchor on drop preserves the top-left exactly (±1 px). GUI-scale change (W 960→480) keeps an anchored distance. Snapping to margins, centre and another element; Shift disables it. **Default-layout overlap** (§7.0 validation) at 427×240, 480×270, 640×360 and 960×540 using sizes computed from `PreviewStrings` with `AsciiWidths`: no two default element rects intersect (panel/card pair exempt), none intersects the vanilla crosshair/indicator rect, and the panel and card intersect neither the title band nor the chat band. **Fit:** every `PreviewStrings` panel row and header fits the computed panel width (with the 6 px gap, `AsciiWidths`), at most 168 px; every card cell fits `colW` ≤ 88; the card footer truncates to end 6 px before the 24 px progress line. **Editor scale steps:** at GUI 1–9, coarse scrolling from 0.5 to 3.0 and back moves on every step, lands on a crisp value (or the 0.5 clamp) and takes exactly `3·gs − gs/2` steps each way; scales saved with 3 decimals (1.333, 0.667 at GUI 3; 1.167 at GUI 6; 1.571 at GUI 7) step both ways and count as crisp. **Combo number:** `comboNumberX` centres one and two digits, plain and broken ("4×"); the live number plus its 1 px outline fits the 30 × 26 box and stays clear of the caption. |
 | `crosshair/CrosshairShapesTest` | For CROSS, T, X, CIRCLE, DOT, with and without centre dot and outline, for even and odd framebuffer W/H and even and odd t: the union bounding box of the fill is centred within 0.5 px of (W/2, H/2) (T: horizontally). Gap 0 adds the core. T has no top arm. X is pixel-aligned (every span edge is an integer; no rotation). Outline and fill spans are disjoint and every outline pixel is within o (Chebyshev) of a fill pixel; spans never overlap each other (no pixel painted twice). The centre dot is centred. |
-| `core/config/KwamsterConfigTest` | `defaults().clampAndFill()` is idempotent. Out-of-range values clamp. Null sections, tiers and layouts are filled. An unknown enum string → default. Gson round-trip. Text colour with alpha 0 → forced 0xFF. An invalid `shareBaseUrl` (`https://a b/`) reverts to the default. Every tier's default sound id is distinct. A syntactically invalid tier sound id (`Minecraft:Ding`, a space, a second `:`) reverts to the tier default, while ids `Identifier.tryParse` accepts (no namespace, empty namespace, resource-pack paths) are kept trimmed. `noRegImmunityTicks` defaults to 10 and clamps to 0–20. |
+| `core/config/KwamsterConfigTest` | `defaults().clampAndFill()` is idempotent. Out-of-range values clamp. Null sections, tiers and layouts are filled. An unknown enum string → default. Gson round-trip. Text colour with alpha 0 → forced 0xFF. An invalid `shareBaseUrl` (`https://a b/`) reverts to the default. Every tier's default sound id is distinct. A syntactically invalid tier sound id (`Minecraft:Ding`, a space, a second `:`) reverts to the tier default, while ids `Identifier.tryParse` accepts (no namespace, empty namespace, resource-pack paths) are kept trimmed. `noRegImmunityTicks` defaults to 10 and clamps to 0–20. `inferOutcomes` and `readOutcomeMessages` default on; `outcomeWindowMs` defaults to 1500 and clamps to 500–5000. |
+| `capture/OutcomeTextTest` | Passive kill messages name the victim first (also with rank prefixes, health in brackets and server prefixes like "Duels »"); active ones after the verb; "died", "fell", "is dead" make the subject the victim; fancy "&lt;a&gt; was … by &lt;b&gt;" needs both players and no non-kill verb ("hit", "challenged", "tagged"); winner and loser announcements, "won/lost (the duel)", "won by"; one-word titles; chat spoken by anyone in the fight is ignored (a title never counts as chat); other players' kills, coins, win streaks, lost connection, hit reports decide nothing; names match as the words they become (Geyser's ".Name"); your own death needs no opponent names. |
+| `core/config/HudPresetTest` | Every preset applies cleanly and survives `clampAndFill`; apply fills a never-clamped config and keeps the section objects; text colours stay readable; presets write no forbidden field and every look field exists; KWAMSTER is the shipped look; `matching` finds each preset after applying it and none for a custom look; presets are distinct and the last applied wins; crosshair states and bar colours stay apart; stepped values sit on their slider steps; only Minimal switches an element off; each preset shows its rows; names and descriptions; `sample()` is a fresh config each time. |
+| `configui/ColorMathTest` | Channels unpack and pack; `withChannel` replaces one channel and clamps; the text-alpha floor only raises low alpha; hex is upper-case with eight digits, accepts six or eight digits with or without `#` and rejects everything else; hex text round-trips for every alpha and channel value; channel text is 1–3 digits; the hex field filter allows only hex input; primaries and secondaries have their hues; **every one of the 16.7 million RGB colours** survives RGB → HSV → RGB exactly; greys keep the previous hue (black also the saturation); HSV → RGB wraps the hue and clamps the rest; control fractions clamp outside the control. |
 | `core/stats/StatFormatTest` | pct "—" on a zero denominator. reach 2 decimals, rounded down; agrees with HitGrader at the threshold. `reachVsRange`: an over-reach value never reads at or inside the range (3.0099 → "3.01"), far-over and in-range values stay rounded down, at the range is not over, a float limit and a lowered range work, no usable limit means no comparison. Duration "0:42" and "1:02:03". Signed values. `truncate("Opponent_Name_123", 60, 6-px stub)` → the longest prefix + "..." that fits in 60 px; a string that fits is returned unchanged. |
 
 `FightClock` is a ★ helper (`core/fight/FightClock.java`, CORE, listed under R6 with the other fight classes) that FightManager delegates the pause arithmetic of §5.13 to, so it can be unit-tested.
@@ -2279,7 +2351,9 @@ It uses the Fabric client gametest API: `ctx.worldBuilder().create()`, `waitForC
 8. Saved fights screen → `08_saved_fights`, with one row.
 9. Hide checks with the render counter (no pixel comparison): read `hudDraws()`, set `options.hideGui = true`, wait 3 frames/ticks, assert `hudDraws()` is unchanged → screenshot `09_f1`. Restore, enable the F3 overlay with `hideInDebug` on, wait, assert unchanged again → `10_f3`. Then F3 off: the counter increases again.
 10. Master switch off → `11_disabled` (vanilla crosshair, no HUD; `hudDraws()` unchanged).
-11. Repeat the default-HUD screenshots of steps 2 and 5 at GUI scale 4 (`12_gui4_fight`, `13_gui4_card`). The README screenshots in `docs/images` are copied from steps 2, 5, 6 and 7.
+11. Repeat the default-HUD screenshots of steps 2 and 5 at GUI scale 4 (`12_gui4_fight`, `13_gui4_card`).
+12. Docs screenshots at 1920×1080 (`docs_*`, cropped into `docs/images` for the README). Among them: clicking the "Moving forward" colour swatch opens `ColorPickerScreen` and Esc returns to the settings (asserted); the picker from a tier colour and from the panel background; the HUD presets screen in both views; the live HUD after applying each preset, then KWAMSTER, after which `HudPreset.matching(config) == KWAMSTER` (asserted).
+13. §5.13a: in a synthetic fight, `ChatListener.handleSystemMessage("<Kwamix> gg you died")` does not end it; "Kwamix was slain by <you>" ends it as a WIN whose `resultNote` quotes the message; in the next fight `Gui.setTitle("DEFEAT!")` ends it as a LOSS with the title note.
 
 Failures throw `AssertionError`. Every screenshot is reviewed by eye after the run.
 

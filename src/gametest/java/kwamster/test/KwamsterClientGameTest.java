@@ -6,7 +6,9 @@ import kwamster.core.ScreenRegistry.ScreenId;
 import kwamster.core.TestHooks;
 import kwamster.core.config.HudElementId;
 import kwamster.core.config.HudLayout;
+import kwamster.core.config.HudPreset;
 import kwamster.core.config.KwamsterConfig;
+import kwamster.core.config.TierStyle;
 import kwamster.core.event.FightEndedEvent;
 import kwamster.core.event.KwamsterListener;
 import kwamster.core.io.Json;
@@ -14,11 +16,13 @@ import kwamster.core.model.CrosshairMode;
 import kwamster.core.model.FightRecord;
 import kwamster.core.model.FightResult;
 import kwamster.core.model.FightStats;
+import kwamster.core.model.HitQuality;
 import kwamster.core.model.LiveFightView;
 import kwamster.core.model.PlayerRef;
 import kwamster.core.model.ShareLink;
 import kwamster.core.model.StoplightReading;
 import kwamster.core.model.StoplightState;
+import kwamster.configui.ColorPickerScreen;
 import kwamster.configui.ConfigScreenBuilder;
 import kwamster.direction.HeadBarMotion;
 import kwamster.direction.HeadBarTracker;
@@ -33,6 +37,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -41,6 +46,7 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -95,6 +101,7 @@ public final class KwamsterClientGameTest implements FabricClientGameTest {
 			masterSwitch(ctx);
 			guiScaleFour(ctx);
 			docsScreenshots(ctx);
+			outcomeMessages(ctx);
 		}
 	}
 
@@ -629,11 +636,34 @@ public final class KwamsterClientGameTest implements FabricClientGameTest {
 			ctx.takeScreenshot(String.format(Locale.ROOT, "docs_settings_%d_%s", i,
 					title.toLowerCase(Locale.ROOT).replaceAll("[^a-z]+", "_")));
 		}
-		// Collapsed groups opened by clicking their header row (positions are fixed at 1920x1080, GUI 3).
-		expandSetting(ctx, ConfigScreenBuilder.HUD, 150, 495, 0, "docs_settings_hud_panel_rows");
+		// Collapsed groups opened by clicking their header row (positions are fixed at 1920x1080, GUI 3; one
+		// row is 24 GUI px = 72 px, and the HUD tab starts with the HUD presets button).
+		expandSetting(ctx, ConfigScreenBuilder.HUD, 150, 567, 0, "docs_settings_hud_panel_rows");
 		expandSetting(ctx, ConfigScreenBuilder.DIRECTION, 150, 567, 0, "docs_settings_direction_bar_look");
+		// The "Moving forward" colour swatch: hovered (ring and tooltip), then clicked, which opens the picker
+		// over the settings; Esc cancels back to them.
+		ctx.getInput().setCursorPos(1322, 713);
+		ctx.waitTick();
+		ctx.getInput().setCursorPos(1322, 713);
+		ctx.waitTicks(3);
+		ctx.takeScreenshot("docs_settings_swatch_hover");
+		ctx.getInput().pressMouse(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+		ctx.waitTicks(3);
+		check(ctx.computeOnClient(mc -> mc.screen instanceof ColorPickerScreen), "clicking a colour swatch opens the picker");
+		ctx.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+		ctx.waitTicks(3);
+		check(ctx.computeOnClient(mc -> mc.screen != null && !(mc.screen instanceof ColorPickerScreen)),
+				"Esc in the picker returns to the settings");
 		expandSetting(ctx, ConfigScreenBuilder.DIRECTION, 150, 639, 0, "docs_settings_direction_jump_sound");
 		expandSetting(ctx, ConfigScreenBuilder.HIT_FEEDBACK, 150, 969, -6, "docs_settings_hit_tier");
+		// The end of the Advanced tab, where the practice-server result settings are.
+		openScreen(ctx, ScreenId.SETTINGS, ConfigScreenBuilder.ADVANCED);
+		ctx.getInput().setCursorPos(960, 600);
+		ctx.waitTick();
+		ctx.getInput().scroll(-20);
+		ctx.waitTicks(3);
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_settings_advanced_end");
 		openScreen(ctx, ScreenId.HUD_EDITOR, null);
 		parkCursor(ctx);
 		ctx.takeScreenshot("docs_hud_editor");
@@ -658,6 +688,76 @@ public final class KwamsterClientGameTest implements FabricClientGameTest {
 		ctx.takeScreenshot("docs_saved_fights");
 		ctx.setScreen(() -> null);
 		ctx.waitTicks(2);
+
+		// The colour picker, as a colour swatch opens it: from a tier colour (a text colour, alpha floor
+		// shown) and from the translucent panel background.
+		ctx.setScreen(() -> new ColorPickerScreen(null,
+				List.of(Component.literal(ConfigScreenBuilder.HIT_FEEDBACK), Component.literal("■ 3-block crit"), Component.literal("Colour")),
+				Kwamster.config().feedback.tiers.get(HitQuality.THREE_BLOCK_CRIT.name()).argb,
+				TierStyle.defaultFor(HitQuality.THREE_BLOCK_CRIT).argb, true, argb -> {
+				}));
+		ctx.waitTicks(3);
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_picker_tier");
+		ctx.setScreen(() -> new ColorPickerScreen(null,
+				List.of(Component.literal(ConfigScreenBuilder.HUD), Component.literal("Panel background")),
+				Kwamster.config().hud.panelBgArgb, new KwamsterConfig().hud.panelBgArgb, false, argb -> {
+				}));
+		ctx.waitTicks(3);
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_picker_panel");
+		ctx.setScreen(() -> null);
+		ctx.waitTicks(2);
+
+		// HUD presets: the screen with a preset picked in each view.
+		openScreen(ctx, ScreenId.HUD_PRESETS, "CLEAN");
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_presets_clean");
+		openScreen(ctx, ScreenId.HUD_PRESETS, "NEON");
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_presets_neon");
+		openScreen(ctx, ScreenId.HUD_PRESETS, "COMPETITIVE");
+		ctx.getInput().pressKey(GLFW.GLFW_KEY_RIGHT);
+		ctx.waitTicks(2);
+		parkCursor(ctx);
+		ctx.takeScreenshot("docs_presets_competitive_over");
+		ctx.setScreen(() -> null);
+		ctx.waitTicks(2);
+
+		// The live HUD in every preset at GUI 4: a three-hit combo ending in a 3-block crit, crosshair on the
+		// opponent. The card is off so one preset's fight end does not cover the next shot.
+		ctx.runOnClient(mc -> {
+			mc.options.guiScale().set(4);
+			Kwamster.config().alert.cardEnabled = false;
+		});
+		ctx.waitTicks(3);
+		for (HudPreset preset : HudPreset.values()) {
+			ctx.runOnClient(mc -> {
+				preset.apply(Kwamster.config());
+				Kwamster.testHooks().beginSyntheticFight("Kwamix");
+				Kwamster.testHooks().setCrosshairOverride(CrosshairMode.ON_PLAYER);
+				mc.gui.getChat().clearMessages(false);
+			});
+			ctx.waitTicks(2);
+			hook(ctx, h -> h.swing(true, 2.50, true, false, true, 0.1, -0.3));
+			hook(ctx, h -> h.swing(true, 2.40, true, true, false, 0.4, 0.1));
+			ctx.runOnClient(mc -> Kwamster.testHooks().swing(true, 2.97, true, true, false, 0.05, 0.45));
+			ctx.waitTicks(3);
+			ctx.takeScreenshot("docs_preset_" + preset.name().toLowerCase(Locale.ROOT));
+			ctx.waitTicks(2);
+		}
+		ctx.runOnClient(mc -> {
+			Kwamster.testHooks().setCrosshairOverride(null);
+			Kwamster.testHooks().endSyntheticFight(FightResult.DRAW);
+		});
+		ctx.waitTicks(2);
+		ctx.runOnClient(mc -> {
+			HudPreset.KWAMSTER.apply(Kwamster.config());
+			Kwamster.config().alert.cardEnabled = true;
+			mc.gui.getChat().clearMessages(false);
+		});
+		check(ctx.computeOnClient(mc -> HudPreset.matching(Kwamster.config()) == HudPreset.KWAMSTER),
+				"applying KWAMSTER restores the default look");
 
 		ctx.runOnClient(mc -> mc.options.guiScale().set(2));
 		ctx.getInput().resizeWindow(854, 480);
@@ -723,6 +823,44 @@ public final class KwamsterClientGameTest implements FabricClientGameTest {
 		ctx.getInput().setCursorPos(2, 2);
 		ctx.waitTick();
 		ctx.getInput().setCursorPos(2, 2);
+		ctx.waitTicks(2);
+	}
+
+	// ---- §5.13a results from server messages -------------------------------------------------------------
+
+	/**
+	 * Synthetic fights end without a death event: a server kill message in chat decides a WIN, a DEFEAT
+	 * title a LOSS, and the opponent's own chat line decides nothing. Uses the real Fabric message path
+	 * ({@code ChatListener.handleSystemMessage} fires {@code ClientReceiveMessageEvents.GAME}) and the real
+	 * title setter ({@code GuiTitleMixin}).
+	 */
+	private void outcomeMessages(ClientGameTestContext ctx) {
+		ctx.runOnClient(mc -> Kwamster.testHooks().beginSyntheticFight("Kwamix"));
+		ctx.waitTick();
+		ctx.runOnClient(mc -> mc.getChatListener().handleSystemMessage(Component.literal("<Kwamix> gg you died"), false));
+		ctx.waitTicks(2);
+		check(ctx.computeOnClient(mc -> Kwamster.fights().inFight()), "the opponent's own chat line does not end the fight");
+
+		ctx.runOnClient(mc -> mc.getChatListener().handleSystemMessage(
+				Component.literal("Kwamix was slain by " + mc.player.getName().getString()), false));
+		ctx.waitTicks(2);
+		FightRecord won = ctx.computeOnClient(mc -> Kwamster.fights().lastRecord());
+		check(won != null && "WIN".equals(won.result), "a kill message decides a WIN, got " + (won == null ? null : won.result));
+		check(won.resultNote != null && won.resultNote.startsWith("Read from chat: \"Kwamix was slain by"),
+				"the result note quotes the message: " + won.resultNote);
+		check(!ctx.computeOnClient(mc -> Kwamster.fights().inFight()), "the fight is over");
+
+		ctx.runOnClient(mc -> Kwamster.testHooks().beginSyntheticFight("Kwamix"));
+		ctx.waitTick();
+		ctx.runOnClient(mc -> mc.gui.setTitle(Component.literal("DEFEAT!")));
+		ctx.waitTicks(2);
+		FightRecord lost = ctx.computeOnClient(mc -> Kwamster.fights().lastRecord());
+		check(lost != null && "LOSS".equals(lost.result), "a DEFEAT title decides a LOSS, got " + (lost == null ? null : lost.result));
+		check("Read from the title: \"DEFEAT!\"".equals(lost.resultNote), "title note: " + lost.resultNote);
+		ctx.runOnClient(mc -> {
+			mc.gui.clearTitles();
+			mc.gui.getChat().clearMessages(false);
+		});
 		ctx.waitTicks(2);
 	}
 

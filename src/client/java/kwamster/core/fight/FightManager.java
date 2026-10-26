@@ -15,6 +15,7 @@ import kwamster.core.event.HitResolvedEvent;
 import kwamster.core.event.HitTakenEvent;
 import kwamster.core.event.JumpResetEvent;
 import kwamster.core.event.KwamsterListener;
+import kwamster.core.event.OutcomeHintEvent;
 import kwamster.core.event.PiercingSwingEvent;
 import kwamster.core.event.SwingEvent;
 import kwamster.core.event.TradeEvent;
@@ -38,7 +39,14 @@ import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.InterpolationHandler;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -56,7 +64,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * grades every landed swing with {@link HitGrader} against the fight's settings snapshot, and posts
  * {@link FightStartedEvent}, {@link HitResolvedEvent}, {@link FightEndedEvent} and
  * {@link WorldLeaveEvent}. Per client tick it tracks the singleplayer pause (the fight clock), detects
- * disconnects and world changes, evaluates the end rules and samples ping.
+ * disconnects and world changes, evaluates the end rules and samples ping. A fight that ended abruptly
+ * right after a hit stays in ENDING for up to {@link FightStateMachine#EVIDENCE_GRACE_MS} while a kill or
+ * win message can still decide it (§5.13a).
  *
  * <p>Client thread only, except {@link #markDisconnectPending()} (R2a). A fight is finalised only from
  * the client tick or the {@code CLIENT_STOPPING} handler, never inside a bus dispatch.
@@ -66,6 +76,7 @@ public final class FightManager implements FightService, KwamsterListener {
 	private static final long STATS_CACHE_NANOS = 50_000_000L;
 	/** Ping is sampled once per second. */
 	private static final int PING_INTERVAL_TICKS = 20;
+	private static final double TELEPORT_SQR = FightStateMachine.TELEPORT_BLOCKS * FightStateMachine.TELEPORT_BLOCKS;
 
 	private final EventBus bus;
 	private final FightStateMachine sm = new FightStateMachine(() -> Kwamster.config().advanced);
@@ -367,6 +378,31 @@ public final class FightManager implements FightService, KwamsterListener {
 		f.mods++;
 	}
 
+	/**
+	 * A kill or win message (§5.13a). One that names who died or lost must name an engaged opponent of
+	 * this fight; anything else (another player's fight) is ignored.
+	 */
+	@Override
+	public void onOutcomeHint(OutcomeHintEvent e) {
+		Fight f = this.fight;
+		if (e == null || f == null || this.sm.phase() == FightStateMachine.Phase.IDLE) {
+			return;
+		}
+		if (e.opponent() != null) {
+			PlayerRef named = null;
+			for (PlayerRef ref : f.opponents()) {
+				if (ref.name().equalsIgnoreCase(e.opponent())) {
+					named = ref;
+					break;
+				}
+			}
+			if (named == null || !this.sm.isEngaged(named.uuid())) {
+				return;
+			}
+		}
+		this.sm.onOutcomeHint(e.win(), f.clock.toFight(e.nanos()), e.note());
+	}
+
 	// ---- per tick (§5.13) -----------------------------------------------------
 
 	@Override
@@ -415,16 +451,21 @@ public final class FightManager implements FightService, KwamsterListener {
 		if (f == null) {
 			return;
 		}
-		// 2. a pending end (death, test hook) is finalised now; it wins over a disconnect or world change
+		long fightNow = f.clock.toFight(now);
+		// 2. a pending end (death, test hook) is finalised now; it wins over a disconnect or world change.
+		// An abrupt draw still waiting for a kill or win message (§5.13a) holds until the wait runs out,
+		// unless you disconnect or switch KWAMSTER off.
 		if (this.sm.phase() == FightStateMachine.Phase.ENDING) {
-			FightEndReason pending = this.sm.pendingReason();
-			finalizeNow(pending != null ? pending : FightEndReason.IDLE);
+			boolean hold = this.sm.awaitingEvidence(fightNow) && !disconnected && Kwamster.config().general.enabled;
+			if (!hold) {
+				FightEndReason pending = this.sm.pendingReason();
+				finalizeNow(pending != null ? pending : FightEndReason.IDLE);
+			}
 			return;
 		}
 		if (this.sm.phase() != FightStateMachine.Phase.ACTIVE) {
 			return;
 		}
-		long fightNow = f.clock.toFight(now);
 		// 3. forced reasons
 		FightEndReason forced = disconnected ? FightEndReason.DISCONNECT
 				: worldChanged ? FightEndReason.WORLD_CHANGE
@@ -432,7 +473,10 @@ public final class FightManager implements FightService, KwamsterListener {
 				: null;
 		if (forced != null) {
 			this.sm.forceEnding(forced, fightNow);
-			finalizeNow(forced);
+			if (!this.sm.awaitingEvidence(fightNow)) {
+				FightEndReason pending = this.sm.pendingReason();
+				finalizeNow(pending != null ? pending : forced);
+			}
 			return;
 		}
 		// 4. end rules (not while paused)
@@ -441,9 +485,12 @@ public final class FightManager implements FightService, KwamsterListener {
 			if (f.synthetic != null && opponent != null && f.synthetic.equals(opponent.uuid())) {
 				this.sm.onKeepAlive(opponent, fightNow); // a synthetic fight never idles out
 			}
-			FightEndReason reason = this.sm.tick(fightNow, presence(mc, f, opponent), selfState(mc));
+			this.sm.noteOpponentHealthVisible(f.acc.view().opponentHealthVisible);
+			FightEndReason reason = this.sm.tick(fightNow, presence(mc, f, opponent), selfState(mc, f));
 			if (reason != null) {
-				finalizeNow(reason);
+				if (!this.sm.awaitingEvidence(fightNow)) {
+					finalizeNow(reason);
+				}
 				return;
 			}
 		}
@@ -463,6 +510,7 @@ public final class FightManager implements FightService, KwamsterListener {
 		}
 		ClientLevel level = mc.level;
 		if (level == null) {
+			f.lastOppPos = null;
 			return OpponentPresence.ABSENT;
 		}
 		for (Player p : level.players()) {
@@ -471,19 +519,51 @@ public final class FightManager implements FightService, KwamsterListener {
 				// for a server that hides health as NaN, and would end every fight as OPPONENT_DIED.
 				boolean alive = !p.isRemoved() && !p.isDeadOrDying();
 				double distance = mc.player != null ? mc.player.distanceTo(p) : 0.0;
-				return new OpponentPresence(true, alive, p.isSpectator(), distance);
+				// The server position, not the interpolated one: a teleport is smoothed over several ticks.
+				Vec3 pos = serverPosition(p);
+				boolean teleported = f.lastOppPos != null && opponent.uuid().equals(f.lastOppUuid)
+						&& f.lastOppPos.distanceToSqr(pos) > TELEPORT_SQR;
+				f.lastOppPos = pos;
+				f.lastOppUuid = opponent.uuid();
+				return new OpponentPresence(true, alive, p.isSpectator(), distance, teleported, healthFrac(p));
 			}
 		}
+		f.lastOppPos = null;
 		return OpponentPresence.ABSENT;
 	}
 
-	private static SelfState selfState(Minecraft mc) {
+	private static SelfState selfState(Minecraft mc, Fight f) {
 		LocalPlayer self = mc.player;
 		if (self == null) {
 			return SelfState.ALIVE;
 		}
 		boolean dead = self.isDeadOrDying() || mc.screen instanceof DeathScreen;
-		return new SelfState(dead, self.isSpectator());
+		Vec3 pos = self.position();
+		boolean teleported = f.lastSelfPos != null && f.lastSelfId == self.getId()
+				&& f.lastSelfPos.distanceToSqr(pos) > TELEPORT_SQR;
+		f.lastSelfPos = pos;
+		f.lastSelfId = self.getId();
+		ClientLevel level = mc.level;
+		boolean inPortal = level != null && (isPortal(level.getBlockState(self.blockPosition()))
+				|| isPortal(level.getBlockState(BlockPos.containing(self.getEyePosition()))));
+		return new SelfState(dead, self.isSpectator(), teleported, healthFrac(self), inPortal);
+	}
+
+	private static boolean isPortal(BlockState state) {
+		return state.is(Blocks.NETHER_PORTAL) || state.is(Blocks.END_PORTAL) || state.is(Blocks.END_GATEWAY);
+	}
+
+	/** Where the server last put {@code e}: the interpolation target while it is still sliding there. */
+	private static Vec3 serverPosition(Entity e) {
+		InterpolationHandler h = e.getInterpolation();
+		return h != null && h.hasActiveInterpolation() ? h.position() : e.position();
+	}
+
+	/** (Health + absorption) / max health, or NaN when the server hides or garbles it. */
+	private static float healthFrac(LivingEntity e) {
+		float max = e.getMaxHealth();
+		float health = e.getHealth() + e.getAbsorptionAmount();
+		return Float.isFinite(health) && Float.isFinite(max) && max > 0f ? health / max : Float.NaN;
 	}
 
 	// ---- open and finalise ----------------------------------------------------
@@ -528,6 +608,7 @@ public final class FightManager implements FightService, KwamsterListener {
 			}
 			FightResult result = FightStateMachine.resultOf(reason);
 			FightRecord record = f.acc.finish(this.sm.endNanos(), result, reason, Kwamster.modVersion());
+			record.resultNote = result != FightResult.DRAW ? this.sm.resultNote() : null;
 			FightStats stats = StatsCalculator.compute(record, StatsCalculator.FINAL);
 			record.stats = stats;
 			int events = record.swings.size() + record.hitsTaken.size();
@@ -602,6 +683,11 @@ public final class FightManager implements FightService, KwamsterListener {
 		int mods;
 		int pingTicks;
 		@Nullable UUID synthetic;
+		/** Last tick's server position of {@link #lastOppUuid} and your own position, for teleports (§5.13a). */
+		@Nullable Vec3 lastOppPos;
+		@Nullable UUID lastOppUuid;
+		@Nullable Vec3 lastSelfPos;
+		int lastSelfId = -1;
 		private @Nullable FightStats cached;
 		private long cachedAt;
 		private int cachedMods = -1;

@@ -243,6 +243,9 @@ public final class ConfigScreenBuilder {
 		KwamsterConfig.Hud h = this.cur.hud;
 		KwamsterConfig.Hud hd = this.def.hud;
 
+		c.addEntry(ButtonEntry.wide(Component.literal("HUD presets…"),
+				Component.literal("Pick a ready-made look for the HUD and crosshair, with a live preview."),
+				ConfigScreenBuilder::openHudPresets));
 		c.addEntry(enumSelector("Panel outside a fight", PanelIdle.class, h.panelWhenIdle, hd.panelWhenIdle,
 				ConfigScreenBuilder::panelIdleName,
 				"What the stats panel shows between fights: your last fight, this session's totals, or nothing.",
@@ -331,6 +334,13 @@ public final class ConfigScreenBuilder {
 				select == null ? null : select.name());
 		if (!opened) {
 			b.flash(bad("HUD editor unavailable"), FLASH_MS);
+		}
+	}
+
+	private static void openHudPresets(ButtonEntry b) {
+		Screen current = Minecraft.getInstance().screen;
+		if (!Kwamster.services().screens().open(ScreenRegistry.ScreenId.HUD_PRESETS, current)) {
+			b.flash(bad("HUD presets unavailable"), FLASH_MS);
 		}
 	}
 
@@ -1034,6 +1044,16 @@ public final class ConfigScreenBuilder {
 				v -> v == 0 ? "Off" : v + " ms",
 				"On servers that turn the loser into a spectator instead of killing them, a switch this soon after the last hit ends the fight as a win or loss.",
 				null, v -> live().advanced.deathInferenceMs = v));
+		c.addEntry(toggle("Detect wins on practice servers", a.inferOutcomes, ad.inferOutcomes,
+				"Practice and duel servers often teleport the loser away instead of killing them. When a fight ends that way right after a hit, decide the win or loss instead of calling it a draw.",
+				null, v -> live().advanced.inferOutcomes = v));
+		c.addEntry(toggle("Read kill and win messages", a.readOutcomeMessages, ad.readOutcomeMessages,
+				"During a fight, read the server's kill messages, winner announcements and VICTORY / DEFEAT titles to decide the result. Lines players type are skipped, and nothing is sent anywhere.",
+				null, v -> live().advanced.readOutcomeMessages = v));
+		c.addEntry(steppedSlider("Win detection window", a.outcomeWindowMs, ad.outcomeWindowMs, 100, 5, 50,
+				ms -> fmt("%.1f s", ms / 1000.0),
+				"How soon after the last hit an abrupt end (the opponent vanishing or being teleported away, or you) still decides the result.",
+				null, v -> live().advanced.outcomeWindowMs = v));
 		c.addEntry(slider("NO-REG immunity window", a.noRegImmunityTicks, 0, 20, ad.noRegImmunityTicks,
 				v -> v == 0 ? "Off" : fmt("%d ticks", v),
 				"A hit this soon after your last registered hit on the same player is flagged NO-REG (vanilla: 10 ticks). Set 0 on combo servers with a reduced hit delay.",

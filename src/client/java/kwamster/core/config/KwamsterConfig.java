@@ -561,6 +561,15 @@ public final class KwamsterConfig {
 		 * 0 turns detection off (servers with a reduced hit delay).
 		 */
 		public int noRegImmunityTicks = 10;
+		/**
+		 * Infer a win or loss when a fight ends abruptly right after the last hit, as on practice and duel
+		 * servers that teleport the loser away instead of killing them (§5.13a).
+		 */
+		public boolean inferOutcomes = true;
+		/** Read kill and win messages from server chat and titles to decide the result (§5.13a). */
+		public boolean readOutcomeMessages = true;
+		/** 500..5000: how soon after the last hit an abrupt end still decides the result (§5.13a). */
+		public int outcomeWindowMs = 1500;
 
 		void clamp() {
 			this.fightIdleMs = KwamsterConfig.clamp(this.fightIdleMs, 2000, 60000);
@@ -577,6 +586,7 @@ public final class KwamsterConfig {
 			this.intervalMaxGapMs = KwamsterConfig.clamp(this.intervalMaxGapMs, 500, 5000);
 			this.deathInferenceMs = KwamsterConfig.clamp(this.deathInferenceMs, 0, 10000);
 			this.noRegImmunityTicks = KwamsterConfig.clamp(this.noRegImmunityTicks, 0, 20);
+			this.outcomeWindowMs = KwamsterConfig.clamp(this.outcomeWindowMs, 500, 5000);
 		}
 	}
 }

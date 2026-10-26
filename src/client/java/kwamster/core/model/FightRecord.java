@@ -34,6 +34,12 @@ public final class FightRecord {
 	public String result;
 	/** {@code FightEndReason.name()}. */
 	public String endReason;
+	/**
+	 * How a WIN or LOSS without a death event was decided (§5.13a), as a sentence for the summary hover,
+	 * e.g. {@code Read from chat: "Kwamix was slain by builtdoor"} or {@code Opponent vanished right after
+	 * your hit}; null when the result came from a death, and for a draw. Saved locally, never shared.
+	 */
+	public String resultNote;
 	public String playerName, playerUuid;
 	/** Primary opponent (§5.14). */
 	public String opponentName, opponentUuid;

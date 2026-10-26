@@ -14,12 +14,13 @@ import java.util.Objects;
  * screens only through this registry (reached via {@code Kwamster.services().screens()}).
  *
  * <p>The optional {@code arg} means: SETTINGS → the initial Cloth category title (§3.12);
- * HUD_EDITOR → a {@code HudElementId.name()} to preselect; SAVED_FIGHTS → ignored. Factories ignore
- * an unknown arg. Client thread.
+ * HUD_EDITOR → a {@code HudElementId.name()} to preselect; SAVED_FIGHTS → ignored; HUD_PRESETS → a
+ * {@code HudPreset} name to preselect (default: the preset in use). Factories ignore an unknown arg.
+ * Client thread.
  */
 public final class ScreenRegistry {
 	/** The screens KWAMSTER can open. */
-	public enum ScreenId { SETTINGS, HUD_EDITOR, SAVED_FIGHTS }
+	public enum ScreenId { SETTINGS, HUD_EDITOR, SAVED_FIGHTS, HUD_PRESETS }
 
 	/** Builds a screen. */
 	@FunctionalInterface
